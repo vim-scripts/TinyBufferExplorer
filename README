@@ -1,0 +1,48 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=1283
+
+[Key features]
+
+    1. incremental collection of buffers
+      - buffer information are collected in the background
+      - less time requred showing lists
+
+    2. grouping
+      - it suppresses excessive information
+      - it's easy to switch among groups
+      - defined groups:
+        - Directory groups corresponding to buffers
+        - MRU(Most Recently Used buffers) group
+        - Search group
+        - [new] All buffers group
+
+    3. ease of accessing buffers and groups
+      - the MRU group can list buffers you are likely to edit
+      - the group list supports you switching among groups
+      - it's easy to switch to the Directory group in which
+        the current buffer is
+
+    4. [new] selectable UIs
+      - "Fullfeatured" (default), SimpleGroup and Minimal
+      - "SimpleGroup": one window, supports switching groups
+      - "Minimal": one window, shows all buffers
+
+    5. customizable list format (Fullfeatured UI only)
+
+[How to use it? (and screenshots)]
+
+There are 3 UIs now. (You can choose by command)
+
+Fullfeatured UI: 
+  execute :TinyBufferExplorer or :TBE.
+  http://bitbucket.org/shu/tinybufferexplorer/downloads/fullfeatured.png
+
+SimpleGroup UI:
+  execute :TBESimpleGroup.
+  http://bitbucket.org/shu/tinybufferexplorer/downloads/simplegroup.png
+
+Minimal UI:
+  execute :TBEMinimal.
+  http://bitbucket.org/shu/tinybufferexplorer/downloads/minimal.png
+
+For more detailed descriptions, read tbe.vim(in clumsy English).
+
