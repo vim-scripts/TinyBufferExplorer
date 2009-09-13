@@ -1,6 +1,5 @@
 " Tiny Buffer Explorer
 "
-" Version: 1.0.0
 " Description:
 "
 "   A 1-file buffer list plugin with grouping.
@@ -17,14 +16,13 @@
 "           - Directory groups corresponding to buffers
 "           - MRU(Most Recently Used buffers) group
 "           - Search group
-"       3. ease of accessing buffers
+"       3. ease of accessing buffers and groups
 "         - the MRU group can list buffers you are likely to edit
 "         - the group list supports you switching among groups
 "         - it's easy to switch to the Directory group in which
 "           the current buffer is
 "       4. customizable list format
 "
-" Last Change: 26-Feb-2006.
 " Maintainer: Shuhei Kubota <chimachima@gmail.com>
 "
 " Usage:
@@ -267,7 +265,10 @@ endfunction
 function! s:TBE_renderCurrentGroup(groupNum)
     setlocal modifiable noreadonly
 
-    %d
+    " stop the yank hijack
+    let old_yank = @"
+
+    %delete
 
     call setline('.', s:TBE_renderGroupLine(a:groupNum, 0, 0, 0))
     let i = 1
@@ -318,6 +319,8 @@ function! s:TBE_renderCurrentGroup(groupNum)
 
     execute s:TBE_bufferHeaderLineCount + 1
     setlocal nomodifiable readonly
+
+    let @" = old_yank
 endfunction
 
 function! s:TBE_adjustWindowSize()
@@ -465,13 +468,13 @@ endfunction
 function! s:TBE_showWindow(name, showVertically)
     let winNum = bufwinnr(a:name)
     if winNum != -1
-        execute winNum . 'wincmd w'
+        execute 'keepalt ' . winNum . 'wincmd w'
         return
     endif
 
     let showMethod = (a:showVertically ? 'vertical new' : 'new')
 
-    execute showMethod . ' ' . a:name
+    execute 'keepalt ' . showMethod . ' ' . a:name
 
     setlocal nowrap nonumber buftype=nofile bufhidden=delete noswapfile
 endfunction
@@ -580,6 +583,9 @@ endfunction
 function! s:TBE_renderGroups()
     setlocal modifiable noreadonly
 
+    " stop the yank hijack
+    let old_yank = @"
+
     %d
 
     " render group line
@@ -624,6 +630,8 @@ function! s:TBE_renderGroups()
     normal gg
     execute s:TBE_groupHeaderLineCount + 1 + s:TBE__currentGroupNumOrder
     setlocal nomodifiable readonly
+
+    let @" = old_yank
 endfunction
 
 function! s:TBE_jumpToGroup(order)
@@ -1022,12 +1030,16 @@ let s:TBE__HANDLER_BUFFER_DELETION   = 's:Group__bufferDeletionHandler'
 let s:TBE__HANDLER_BUFFER_ENTRANCE   = 's:Group__bufferEntranceHandler'
 let s:TBE__HANDLER_BUFFER_COLLECTION = 's:Group__bufferCollectionHandler'
 
+function! s:SID()
+    return matchstr(expand('<sfile>'), '<SNR>\zs\d\+\ze_SID$')
+endfun
+
 function! s:TBE_hookEvents()
     augroup TinyBufferExplorer
         autocmd!
-        autocmd  BufAdd    * call <SID>TBE_invokeEventHandler('s:TBE_onBufferAddition', expand('<abuf>') + 0)
-        autocmd  BufDelete * call <SID>TBE_invokeEventHandler('s:TBE_onBufferDeletion', expand('<abuf>') + 0)
-        autocmd  BufEnter  * call <SID>TBE_invokeEventHandler('s:TBE_onBufferEntrance', expand('<abuf>') + 0)
+        autocmd  BufAdd    * call <SID>TBE_invokeEventHandler('<SNR>' . s:SID() . '_TBE_onBufferAddition', expand('<abuf>') + 0)
+        autocmd  BufDelete * call <SID>TBE_invokeEventHandler('<SNR>' . s:SID() . '_TBE_onBufferDeletion', expand('<abuf>') + 0)
+        autocmd  BufEnter  * call <SID>TBE_invokeEventHandler('<SNR>' . s:SID() . '_TBE_onBufferEntrance', expand('<abuf>') + 0)
     augroup END
 endfunction
 
@@ -1316,4 +1328,4 @@ endfunction
 
 call s:TBE_init()
 
-" vim:set et ts=4 sts=4 sw=4:
+" vim: set fenc=utf-8 ff=unix ts=4 sts=4 sw=4 et : 
