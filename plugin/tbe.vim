@@ -16,37 +16,60 @@
 "           - Directory groups corresponding to buffers
 "           - MRU(Most Recently Used buffers) group
 "           - Search group
+"           - All buffers group
 "       3. ease of accessing buffers and groups
 "         - the MRU group can list buffers you are likely to edit
 "         - the group list supports you switching among groups
 "         - it's easy to switch to the Directory group in which
 "           the current buffer is
-"       4. customizable list format
+"       4. selectable UIs
+"         - Fullfeatured (default), SimpleGroup and Minimal
+"         - SimpleGroup: one window, supports switching groups
+"         - Minimal: one window, shows all buffers
+"       5. customizable list format (Fullfeatured UI only)
 "
-" Maintainer: Shuhei Kubota <chimachima@gmail.com>
+" Maintainer: Shuhei Kubota <kubota.shuhei@gmail.com>, @chimatter
 "
 " Usage:
 "
-"   [Commands]
+"   [Commands and UIs]
 "
-"      :TinyBufferExplorer
+"      :TinyBufferExplorer or :TBE
 "   
-"          shows the TBE window (showing buffer list).
+"          shows the TBE window (showing buffer list) with Fullfeatured UI.
+"          Two windows are shown. The buffer list window and the group list window.
+"
+"      :TBESimpleGroup
+"   
+"          shows the TBE with the SimpleGroup UI.
+"          One window is shown. In order to switch groups, use <Tab> key.
+"
+"      :TBEMinimal
+"   
+"          shows the TBE with the Minimal UI.
+"          This doesn't provide grouping feature.
+"          This doesn't show groups and does show all buffers.
 "
 "   [Options(Variables)]
 "
 "      Note that the right-hand value is a default value.
 "   
 "      g:TBE_showVertically = 0
+"
+"          <Fullfeatured, SimpleGroup, Minimal>
 "   
 "          If its value is 0, the window is shown hirizontally. Otherwise (if 0),
 "          the window is shown vertically.
 "   
 "      g:TBE_mruMax = 10
+"
+"          <Fullfeatured, SimpleGroup>
 "      
 "          The maximum number of buffers which are shown in the MRU group.
 "   
 "      g:TBE_showMRUFirst = 0
+"
+"          <Fullfeatured, SimpleGroup>
 "   
 "          This option affects when you open the TBE window.
 "   
@@ -56,6 +79,8 @@
 "          Otherwise TBE shows the group which are shown in the last time.
 "   
 "      g:TBE_alwaysShowGroupWindow = 0
+"
+"          <Fullfeatured>
 "   
 "          This option affects when you open the TBE window.
 "   
@@ -63,11 +88,15 @@
 "          window at the same time. This make TBE slower (a little).
 "   
 "      g:TBE_bufferLineFormat = '{number} | {%}{h} {+} {name}   {dir}'
+"
+"          <Fullfeatured>
 "   
 "          A format of a buffer. For more specifications, execute
 "          "/!exists('g:TBE_bufferLineFormat')" and read what is written there.
 "   
 "      g:TBE_groupLineFormat = '{name}  -{count}-    {path}'
+"
+"          <Fullfeatured>
 "   
 "          A format of a group. For more specifications, execute
 "          "/!exists('g:TBE_groupLineFormat')" and read what is written there.
@@ -75,42 +104,83 @@
 "   
 "   [Key Mappings]
 "
-"       ?:
-"           toggles showing/hiding help text.
-"
 "       j, k:
+"           <Fullfeatured, SimpleGroup, Minimal>
 "           moves cursor upward/downward.
 "
-"       <Enter>, <C-J>:
-"           opens the buffer under the cursor.
-"
-"       d:
-"           deletes a buffer. If multiple buffers are selected, they are
-"           all deleted.
-"
-"       f:
-"           shows the group window.
-"
-"       h, l
+"       h, l:
+"           <Fullfeatured>
 "           switches group shown in the buffer window.
 "
-"       n:
+"           <SimpleGroup, Minimal>
+"           moves cursor leftward/rightward.
+"
+"       <Tab>, <S-Tab>:
+"           <Fullfeatured, SimpleGroup>
+"           switches group shown in the buffer window.
+"
+"       <Enter>, <C-J>:
+"           <Fullfeatured, SimpleGroup, Minimal>
+"           opens the buffer under the cursor.
+"
+"       q, <Esc>: 
+"           <Fullfeatured, SimpleGroup, Minimal>
+"           escapes from the buffer list window.
+"
+"       d, D:
+"           <Fullfeatured, SimpleGroup, Minimal>
+"           deletes a buffer.
+"
+"           <Fullfeatured>
+"           If multiple buffers are selected, they are all deleted.
+"
+"       f, F:
+"           <Fullfeatured>
+"           shows the group window.
+"
+"       g, G:
+"           <Fullfeatured>
+"           shows the group window.
+"
+"           <SimpleGroup>
+"           shows the group selection window.
+"
+"       n, N:
+"           <Fullfeatured, SimpleGroup>
 "           shows the Directory group in which the current buffer is.
 "
-"       m:
+"       m, M:
+"           <Fullfeatured, SimpleGroup>
 "           shows the Most Recently Used Buffers group.
 "
+"       a, A:
+"           <Fullfeatured, SimpleGroup>
+"           shows the ALL buffers group.
+"
 "       /:
+"           <Fullfeatured, SimpleGroup>
 "           shows the Search group (searched by the path of each buffer).
 "
 "       r:
+"           <Fullfeatured, SimpleGroup, Minimal>
 "           re-collects buffers and refreshes the window.
 "
 "       v, V, <C-V>:
+"           <Fullfeatured>
 "           selects buffers(lines). Selected buffers are targets for deletion.
 "
-"       q, <Esc>: 
-"           escapes from the buffer list window.
+"==============================
+" Commands
+"==============================
+
+command!  TinyBufferExplorer call g:TBE_useFullfeaturedUI()
+command!  TBE                call g:TBE_useFullfeaturedUI()
+command!  TBESimpleGroup     call g:TBE_useSimpleGroupUI()
+command!  TBEMinimal         call g:TBE_useMinimalUI()
+
+"==============================
+" Options
+"==============================
 
 if !exists('g:TBE_mruMax')
     let g:TBE_mruMax = 10
@@ -165,512 +235,61 @@ if !exists('g:TBE_groupLineFormat')
     "    {count}  : the count of buffers
 endif
 
-command!  TinyBufferExplorer  call <SID>TBE_showMainWindow()
+"==============================
+" Code
+"==============================
 
+"------------------------------
+" UI Common 
+"------------------------------
 
-" debugging
-let s:TBE__makeDump = 0
+let s:TBE_MAIN_BUFFER_NAME = 'TinyBufferExplorer'
+let s:TBE_GROUP_BUFFER_NAME = 'TinyBufferExplorerGroups'
 
-"
-" TBE class
-"
-let s:TBE__BUFFER_NAME       = 'TinyBufferExplorer'
-let s:TBE__GROUP_BUFFER_NAME = 'TinyBufferExplorerGroups'
-let s:TBE__DUMP_BUFFER_NAME  = 'TinyBufferExplorerDump'
+function! s:UI_memoCurrentBuffer()
+    let s:Buffer_currentBufferNumber = bufnr('%')
+    let s:Buffer_alternateBufferNumber = bufnr('#')
+endfunction
 
-let s:TBE__FORMAT_NUMBER   = '{number}' " buffer right
-let s:TBE__FORMAT_COUNT    = '{count}'  " group right
-let s:TBE__FORMAT_NAME     = '{name}'   " buffer group left
-let s:TBE__FORMAT_PATH     = '{path}'   " buffer group left
-let s:TBE__FORMAT_DIR      = '{dir}'    " buffer left
-let s:TBE__FORMAT_CURRENT  = '{%}'      " buffer left
-let s:TBE__FORMAT_HIDDEN   = '{h}'      " buffer left
-let s:TBE__FORMAT_MODIFIED = '{+}'      " buffer left
+" let s:TBE_lastGroup = {}
+function! s:UI_memoLastGroup(group)
+    let s:TBE_lastGroup = a:group
+endfunction
 
-let s:TBE__INITIAL_HEADER_LINE_COUNT = 2
-let s:TBE__HELP_TEXT = ""
-            \ . "= HELP =\n"
-            \ . "?              ... toggles showing/hiding this help\n"
-            \ . "q, <Esc>       ... hides TBE windows\n"
-            \ . "<C-J>, <Enter> ... opens the buffer under the cursor\n"
-            \ . "j, k           ... moves the cursor, switches buffers\n"
-            \ . "v              ... selects buffers\n"
-            \ . "d              ... deletes buffer(or selected buffers)\n"
-            \ . "f              ... shows the group window\n"
-            \ . "r              ... refreshes TBE windows\n"
-            \ . "h, l           ... switches groups in the main(buffer) window\n"
-            \ . "n              ... shows the group in which the current buffer is\n"
-            \ . "m              ... shows the MRU group\n"
-            \ . "/              ... shows the Search group\n"
-            \ . "= HELP =\n"
-let s:TBE__HELP_LINE_COUNT = 14
+function! s:UI_closeBufferWindow()
+    silent! execute bufnr(s:TBE_MAIN_BUFFER_NAME) . 'bdelete!'
+    silent! execute bufnr(s:TBE_GROUP_BUFFER_NAME) . 'bdelete!'
+endfunction
 
-function! s:TBE_init()
-    let s:TBE__groupCount = 0
-    " let s:TBE__order2GroupNum{0 <= i < s:TBE__groupCount} = (0 <= order < s:TBE__groupCount)
-
-    let mru = s:TBE_createMRUGroup()
-    call s:TBE_collectBuffers()
-
-    let s:TBE__currentGroupNumOrder = 0
-
-    call s:TBE_hookEvents()
-
-    let s:TBE__showHelp = 0
-    let s:TBE_bufferHeaderLineCount = s:TBE__INITIAL_HEADER_LINE_COUNT
-    let s:TBE_groupHeaderLineCount  = s:TBE__INITIAL_HEADER_LINE_COUNT
-    if s:TBE__showHelp
-        let s:TBE_bufferHeaderLineCount = s:TBE_bufferHeaderLineCount + s:TBE__HELP_LINE_COUNT
+function! s:UI_backtoMainWindow()
+    if g:TBE_showVertically | let method = 'vertical new' | else | let method = 'new' | endif
+    call s:Buffer_openTempWindow(s:TBE_MAIN_BUFFER_NAME, method, 1)
+    if !g:TBE_alwaysShowGroupWindow
+        silent! execute bufnr(s:TBE_GROUP_BUFFER_NAME) . 'bdelete!'
     endif
 endfunction
 
-let s:TBE__dumpCount = 0
-function! s:TBE_dump(title)
-    if ! s:TBE__makeDump
-        return
+function! s:UI_jumpToBuffer(bufferNumber, closeBufferWindow)
+    if a:closeBufferWindow
+        call s:UI_closeBufferWindow()
     endif
-
-    call s:TBE_showWindow(s:TBE__DUMP_BUFFER_NAME, 'new')
-
-    call append(0, a:title)
-    call append(1, '')
-    call append(2, 'Group(index(groupNum) => group info):')
-
-    let offset = 3
-    let i = 0
-    while i < s:TBE_getGroupCount()
-        call append(offset + i, "\t" . i . "\t=> " . s:TBE_renderGroupLine(i, 0, 16, 32) . "\t" . s:Group_getDeletionTiming(i))
-        let i = i + 1
-    endwhile
-
-    let offset = offset + i
-    call append(offset, '')
-    call append(offset + 1, 'Order(index => groupNum):')
-    let offset = offset + 2
-    let i = 0
-    while i < s:TBE_getGroupCount()
-        call append(offset + i, "\t" . i . "\t=> " . s:TBE_getOrderOfGroup(i))
-        let i = i + 1
-    endwhile
-
-    let offset = offset + i
-
-
-    execute 'write! dump' . s:TBE__dumpCount . '.txt'
-    bd
-    let s:TBE__dumpCount = s:TBE__dumpCount + 1
+    execute a:bufferNumber . 'b'
 endfunction
 
-
-function! s:TBE_renderCurrentGroup(groupNum)
-    setlocal modifiable noreadonly
-
-    " stop the yank hijack
-    let old_yank = @"
-
-    %delete
-
-    call setline('.', s:TBE_renderGroupLine(a:groupNum, 0, 0, 0))
-    let i = 1
-    while i < s:TBE__INITIAL_HEADER_LINE_COUNT
-        normal o
-        let i = i + 1
-    endwhile
-
-    " render buffer line
-
-    let numWid  = 0
-    let nameWid = 0
-    let pathWid = 0
-    let dirWid  = 0
-
-    if stridx(g:TBE_bufferLineFormat, s:TBE__FORMAT_NUMBER) != -1
-        let numWid = s:TBE_maxWidthOfBufferProperty(a:groupNum, 'bufnr')
-    endif
-
-    if stridx(g:TBE_bufferLineFormat, s:TBE__FORMAT_NAME) != -1
-        let nameWid = s:TBE_maxWidthOfBufferProperty(a:groupNum, 's:Buffer_getName')
-    endif
-
-    if stridx(g:TBE_bufferLineFormat, s:TBE__FORMAT_PATH) != -1
-        let pathWid = s:TBE_maxWidthOfBufferProperty(a:groupNum, 's:Buffer_getPath')
-    endif
-
-    if stridx(g:TBE_bufferLineFormat, s:TBE__FORMAT_DIR) != -1
-        let dirWid = s:TBE_maxWidthOfBufferProperty(a:groupNum, 's:Buffer_getDir')
-    endif
-
-    let bi = 0
-    while bi < s:Group__bufferCount{a:groupNum}
-        normal o
-        let b = s:Group__bufferNumber{a:groupNum}_{bi}
-        call setline('.', s:TBE_renderBufferLine(a:groupNum, b, numWid, nameWid, pathWid, dirWid))
-        let bi = bi + 1
-    endwhile
-
-    if s:TBE__showHelp
-        silent! 1put! =s:TBE__HELP_TEXT
-    endif
-
-    " make window fit
-    call s:TBE_adjustWindowSize()
-
-    normal gg
-
-    execute s:TBE_bufferHeaderLineCount + 1
-    setlocal nomodifiable readonly
-
-    let @" = old_yank
-endfunction
-
-function! s:TBE_adjustWindowSize()
-    if g:TBE_showVertically
-        return
-    endif
-
-    let size = 0
-    let bufferWindowSize = 0
-    let groupWindowSize  = 0
-
-    let winnr = winnr()
-    let bufferWindowNr = bufwinnr(s:TBE__BUFFER_NAME)
-    let groupWindowNr  = bufwinnr(s:TBE__GROUP_BUFFER_NAME)
-
-    if bufferWindowNr != -1
-        execute bufferWindowNr . 'wincmd w'
-        let bufferWindowSize = line('$')
-    endif
-
-    if groupWindowNr != -1
-        execute groupWindowNr . 'wincmd w'
-        let groupWindowSize = line('$')
-    endif
-
-    execute winnr .'wincmd w'
-
-    if bufferWindowSize < groupWindowSize
-        let size = groupWindowSize
-    else
-        let size = bufferWindowSize
-    endif
-
-    execute size . 'wincmd _'
-endfunction
-
-function! s:TBE_renderBufferLine(groupNum, bufferNum, numWid, nameWid, pathWid, dirWid)
-    let number = s:TBE_alignRight('' . a:bufferNum, a:numWid)
-    let name   = s:TBE_alignLeft('' . s:Buffer_getName(a:bufferNum), a:nameWid)
-    let path   = s:TBE_alignLeft('' . s:Buffer_getPath(a:bufferNum), a:pathWid)
-    let dir    = s:TBE_alignLeft('' . s:Buffer_getDir(a:bufferNum), a:dirWid)
-
-    if a:bufferNum == s:TBE__currentBufferNum
-        let current = '%'
-    elseif a:bufferNum == s:TBE__alternativeBufferNum
-        let current = '#'
-    else
-        let current = ' '
-    endif
-
-    if bufwinnr(a:bufferNum) == -1
-        let hidden = 'h'
-    else
-        let hidden = 'a'
-    endif
-
-    if getbufvar(a:bufferNum, '&modified')
-        let modified = '+'
-    else
-        let modified = ' '
-    endif
-
-    let line = g:TBE_bufferLineFormat
-    let line = substitute(line, s:TBE__FORMAT_NUMBER,    number,    '')
-    let line = substitute(line, s:TBE__FORMAT_NAME,      escape(name, '\'), '')
-    let line = substitute(line, s:TBE__FORMAT_PATH,      escape(path, '\'), '')
-    let line = substitute(line, s:TBE__FORMAT_DIR,       escape(dir, '\'), '')
-    let line = substitute(line, s:TBE__FORMAT_CURRENT,   current  , '')
-    let line = substitute(line, s:TBE__FORMAT_HIDDEN,    hidden   , '')
-    let line = substitute(line, s:TBE__FORMAT_MODIFIED,  modified , '')
-
-    return line
-endfunction
-
-function! s:TBE_renderGroupLine(groupNum, countWid, nameWid, pathWid)
-    let bufferCount = s:TBE_alignRight('' . s:Group_getBufferCount(a:groupNum), a:countWid)
-    let name        = s:TBE_alignLeft(s:Group_getName(a:groupNum), a:nameWid)
-    let path        = s:TBE_alignLeft(s:Group_getPath(a:groupNum), a:pathWid)
-
-    let line = g:TBE_groupLineFormat
-    let line = substitute(line, s:TBE__FORMAT_COUNT, bufferCount, '')
-    let line = substitute(line, s:TBE__FORMAT_NAME,  escape(name, '\'),        '')
-    let line = substitute(line, s:TBE__FORMAT_PATH,  escape(path, '\'),        '')
-
-    return line
-endfunction
-
-function! s:TBE_alignLeft(str, width)
-    let result = a:str
-
-    let i = strlen(a:str)
-    while i < a:width
-        let result = result . ' '
-        let i = i + 1
-    endwhile
-
-    return result
-endfunction
-
-function! s:TBE_alignRight(str, width)
-    let result = a:str
-
-    let i = strlen(a:str)
-    while i < a:width
-        let result = ' ' . result
-        let i = i + 1
-    endwhile
-
-    return result
-endfunction
-
-function! s:TBE_maxWidthOfBufferProperty(groupNum, propGetter)
-    let maxWidth = 0
-
-    let bufferCount = s:Group_getBufferCount(a:groupNum)
-    let i = 0
-    while i < bufferCount
-        let bufferNum = s:Group_getNthBuffer(a:groupNum, i)
-        let width = strlen({a:propGetter}(bufferNum))
-        if maxWidth < width
-            let maxWidth = width
-        endif
-        let i = i + 1
-    endwhile
-
-    return maxWidth
-endfunction
-
-function! s:TBE_maxWidthOfGroupProperty(propGetter)
-    let maxWidth = 0
-
-    let groupCount = s:TBE_getGroupCount()
-    let i = 0
-    while i < groupCount
-        let width = strlen({a:propGetter}(i))
-        if maxWidth < width
-            let maxWidth = width
-        endif
-        let i = i + 1
-    endwhile
-
-    return maxWidth
-endfunction
-
-function! s:TBE_showWindow(name, showVertically)
-    let winNum = bufwinnr(a:name)
-    if winNum != -1
-        execute 'keepalt ' . winNum . 'wincmd w'
-        return
-    endif
-
-    let showMethod = (a:showVertically ? 'vertical new' : 'new')
-
-    execute 'keepalt ' . showMethod . ' ' . a:name
-
-    setlocal nowrap nonumber buftype=nofile bufhidden=delete noswapfile
-endfunction
-
-function! s:TBE_showMainWindow()
-    " current buffer
-    let s:TBE__currentBufferNum     = bufnr('%')
-    let s:TBE__alternativeBufferNum = bufnr('#')
-
-    let winNum = bufwinnr(s:TBE__BUFFER_NAME)
-    if winNum != -1
-        execute winNum . 'wincmd w'
-        return
-    endif
-
-    call s:TBE_showWindow(s:TBE__BUFFER_NAME, g:TBE_showVertically)
-    setlocal nowrap nonumber buftype=nofile bufhidden=delete noswapfile
-
-    if g:TBE_alwaysShowGroupWindow
-        call s:TBE_showGroupWindow()
-        execute bufwinnr(s:TBE__BUFFER_NAME) . 'wincmd w'
-    endif
-
-    noremap <silent> <buffer> v       V
-    noremap <silent> <buffer> <C-V>   V
-    noremap <silent> <buffer> q       :call <SID>TBE_hideMainWindow()<CR>
-    noremap <silent> <buffer> <Esc>   :call <SID>TBE_hideMainWindow()<CR>
-    noremap <silent> <buffer> l       :call <SID>TBE_gotoNextGroup()<CR>
-    noremap <silent> <buffer> h       :call <SID>TBE_gotoPrevGroup()<CR>
-    noremap <silent> <buffer> /       :call <SID>TBE_showSearchGroup()<CR>
-    noremap <silent> <buffer> m       :call <SID>TBE_showMRUGroup()<CR>
-    noremap <silent> <buffer> n       :call <SID>TBE_gotoDirectoryGroup()<CR>
-    noremap <silent> <buffer> <C-J>   :call <SID>TBE_jumpToBuffer(line('.'))<CR>
-    noremap <silent> <buffer> <Enter> :call <SID>TBE_jumpToBuffer(line('.'))<CR>
-    noremap <silent> <buffer> d       :call <SID>TBE_deleteBuffer()<CR>
-    noremap <silent> <buffer> f       :call <SID>TBE_showGroupWindow()<CR>
-    noremap <silent> <buffer> r       :call <SID>TBE_refreshWindow()<CR>
-    noremap <silent> <buffer> ?       :call <SID>TBE_toggleHelp()<CR>
-
-    syntax match Keyword    /^.\+ \.\{3\}/me=e-4
-    syntax match Comment    /\.\{3\} .\+$/ms=s+3
-    syntax match StatusLine /^=.\+=$/
-
-    if g:TBE_showMRUFirst
-        call s:TBE_renderCurrentGroup(s:TBE_findGroupByPath(s:MRUGroup_PATH))
-    else
-        call s:TBE_renderCurrentGroup(s:TBE_getNthGroupInOrder(s:TBE__currentGroupNumOrder))
-    endif
-endfunction
-
-function! s:TBE_toggleHelp()
-    let s:TBE__showHelp = !s:TBE__showHelp
-    let s:TBE_bufferHeaderLineCount = s:TBE__INITIAL_HEADER_LINE_COUNT + (s:TBE__showHelp ? s:TBE__HELP_LINE_COUNT : 0)
-    call s:TBE_renderCurrentGroup(s:TBE_getNthGroupInOrder(s:TBE__currentGroupNumOrder))
-endfunction
-
-function! s:TBE_refreshWindow()
-    let mru = s:TBE_findGroupByPath(s:MRUGroup_PATH)
-    if mru == 0
-        let s:TBE__groupCount = 1
-    else
-        let s:TBE__groupCount = 0
-        let mru = s:TBE_createMRUGroup()
-    endif
-    call s:TBE_collectBuffers()
-    let s:TBE__currentGroupNumOrder = mru
-
-    call s:TBE_renderCurrentGroup(mru)
-endfunction
-
-function! s:TBE_gotoDirectoryGroup()
-    let dir = s:Buffer_getDir(s:TBE__currentBufferNum)
-
-    let groupCount = s:TBE_getGroupCount()
-    let i = 0
-    while i < groupCount
-        let g = s:TBE_getNthGroupInOrder(i)
-        if s:Group_getPath(g) == dir
-            call s:TBE_gotoGroupByOrder(i)
-            break
-        endif
-
-        let i = i + 1
-    endwhile
-endfunction
-
-function! s:TBE_hideMainWindow() range
-    silent! execute bufnr(s:TBE__GROUP_BUFFER_NAME) . 'bdelete!'
-    silent! execute bufnr(s:TBE__BUFFER_NAME) . 'bdelete!'
-endfunction
-
-function! s:TBE_showGroupWindow()
-    call s:TBE_showWindow(s:TBE__GROUP_BUFFER_NAME, !g:TBE_showVertically)
-
-    setlocal nowrap nonumber buftype=nofile bufhidden=delete noswapfile
-
-    noremap <silent> <buffer> q       :call <SID>TBE_hideGroupWindow()<CR>
-    noremap <silent> <buffer> <Esc>   :call <SID>TBE_hideGroupWindow()<CR>
-    noremap <silent> <buffer> <C-J>   :call <SID>TBE_jumpToGroup(line('.'))<CR>
-    noremap <silent> <buffer> <Enter> :call <SID>TBE_jumpToGroup(line('.'))<CR>
-    noremap <silent> <buffer> f       :call <SID>TBE_jumpToGroup(line('.'))<CR>
-
-    call s:TBE_renderGroups()
-endfunction
-
-function! s:TBE_renderGroups()
-    setlocal modifiable noreadonly
-
-    " stop the yank hijack
-    let old_yank = @"
-
-    %d
-
-    " render group line
-
-    let countWid  = 0
-    let nameWid   = 0
-    let pathWid   = 0
-
-    if stridx(g:TBE_groupLineFormat, s:TBE__FORMAT_COUNT) != -1
-        let countWid = s:TBE_maxWidthOfGroupProperty('s:Group_getBufferCount')
-    endif
-
-    if stridx(g:TBE_groupLineFormat, s:TBE__FORMAT_NAME) != -1
-        let nameWid = s:TBE_maxWidthOfGroupProperty('s:Group_getName')
-    endif
-
-    if stridx(g:TBE_groupLineFormat, s:TBE__FORMAT_PATH) != -1
-        let pathWid = s:TBE_maxWidthOfGroupProperty('s:Group_getPath')
-    endif
-
-    call setline(1, '::Groups::')
-    let i = 1
-    while i < s:TBE_groupHeaderLineCount
-        normal o
-        let i = i + 1
-    endwhile
-
-    let groupCount = s:TBE_getGroupCount()
-    let o = 0
-    while o < groupCount
-        let g = s:TBE_getNthGroupInOrder(o)
-
-        normal o
-        call setline('.', s:TBE_renderGroupLine(g, countWid, nameWid, pathWid))
-
-        let o = o + 1
-    endwhile
-
-    " make window fit
-    call s:TBE_adjustWindowSize()
-
-    normal gg
-    execute s:TBE_groupHeaderLineCount + 1 + s:TBE__currentGroupNumOrder
-    setlocal nomodifiable readonly
-
-    let @" = old_yank
-endfunction
-
-function! s:TBE_jumpToGroup(order)
-    let order = a:order - s:TBE_groupHeaderLineCount - 1
-    if order < 0
-        return
-    endif
-
-    call s:TBE_hideGroupWindow()
-    call s:TBE_gotoGroupByOrder(order)
-endfunction
-
-function! s:TBE_hideGroupWindow() range
-    if g:TBE_alwaysShowGroupWindow
-        execute bufwinnr(s:TBE__BUFFER_NAME) . 'wincmd w'
-    else
-        execute bufnr(s:TBE__GROUP_BUFFER_NAME) . 'bdelete!'
-    endif
-endfunction
-
-function! s:TBE_deleteBuffer() range
-    if a:firstline <= s:TBE_bufferHeaderLineCount
-        return
-    endif
-
-    let groupNum = s:TBE_getNthGroupInOrder(s:TBE__currentGroupNumOrder)
-    let delCount = a:lastline - a:firstline + 1
-
+function! s:UI_deleteBuffer(bufferNumbers)
+    " confirm this delete operation
     let msg = 'Are you sure to delete '
-    if delCount == 1
-        let msg = msg . '`' . s:Buffer_getName(s:Group_getNthBuffer(groupNum, a:firstline  - s:TBE_bufferHeaderLineCount - 1)) . "'"
+    if len(a:bufferNumbers) == 0
+        return
+    elseif len(a:bufferNumbers) == 1
+        let msg = msg . s:Buffer_create(a:bufferNumbers[0]).getName()
     else
-        let msg = msg . (a:lastline - a:firstline + 1) . ' buffers'
+        let msg = msg . len(a:bufferNumbers) . ' buffers'
     endif
     let msg = msg . '? [y/N]'
 
     echo msg
     let ans = tolower(nr2char(getchar()))
-
     " clear the echo
     normal :<Esc>
 
@@ -678,654 +297,1281 @@ function! s:TBE_deleteBuffer() range
         return
     endif
 
-    let i = 0
-    while i < delCount
-        let bufferNum = s:Group_getNthBuffer(groupNum, a:firstline - s:TBE_bufferHeaderLineCount - 1)
-        if !s:TBE_isUntouchableBuffer(bufferNum)
-            call s:Buffer_delete(bufferNum)
-        else
-            " doesn't delete actually, but acts as if deleted
-            call s:TBE_onBufferDeletion(bufferNum)
-        endif
-
-        let i = i + 1
-    endwhile
-
-    let groupNum = s:TBE_getNthGroupInOrder(s:TBE__currentGroupNumOrder)
-    " refresh group window
-    if bufwinnr(s:TBE__GROUP_BUFFER_NAME) != -1
-        call s:TBE_showGroupWindow()
-        execute bufwinnr(s:TBE__BUFFER_NAME) . 'wincmd w'
-    endif
-    " refresh main(buffer) window
-    call s:TBE_renderCurrentGroup(groupNum)
+    for b in a:bufferNumbers
+        silent execute b . 'bdelete!'
+    endfor
 endfunction
 
-function! s:TBE_jumpToBuffer(index)
-    let index = a:index - s:TBE_bufferHeaderLineCount - 1
-    if index < 0
-        return
-    endif
-
-    let groupNum = s:TBE_getNthGroupInOrder(s:TBE__currentGroupNumOrder)
-    let bufferNum = s:Group_getNthBuffer(groupNum, index)
-
-    call s:TBE_hideMainWindow()
-    execute bufferNum . 'b'
-endfunction
-
-function! s:TBE_showMRUGroup()
-    let groupNum = s:TBE_findGroupByPath(s:MRUGroup_PATH)
-    let order = s:TBE_getOrderOfGroup(groupNum)
-
-    let s:TBE__currentGroupNumOrder = order
-    call s:TBE_renderCurrentGroup(groupNum)
-endfunction
-
-function! s:TBE_showSearchGroup()
+function! s:UI_showSearchGroup()
     let pattern = input('Search pattern: ')
-    if pattern == '/'
-        let groupNum = s:TBE_findGroupByPath(s:SearchGroup_PATH)
-        if groupNum != s:INVALID_INDEX
-            call s:TBE_gotoGroup(groupNum)
-            echo 'Jumping to the Search group.'
+    if strlen(pattern) != 0
+        " replacing existing search group
+        let sg = s:TBE_findGroupByID('::Search::')
+        if sg != {}
+            call s:TBE_removeGroup(sg)
         endif
-    elseif strlen(pattern) != 0
-        " on creation, groupNum == order
-        let groupNum = s:TBE_createSearchGroup(pattern)
-        let s:TBE__currentGroupNumOrder = groupNum
-        " let s:TBE__currentGroupNumOrder = s:TBE_getOrderOfGroup(groupNum)
 
-        call s:TBE_renderCurrentGroup(groupNum)
+        call s:SearchGroup_install(pattern)
+        let sg = s:TBE_findGroupByID('::Search::')
+        if sg != {}
+            return sg
+        endif
     else
         echo 'Canceled'
     endif
+
+    return {}
 endfunction
 
-function! s:TBE_gotoGroup(groupNum)
-    let order = s:TBE_getOrderOfGroup(a:groupNum)
-    call s:TBE_gotoGroupByOrder(order)
-endfunction
+"------------------------------
+" Fullfeatured UI
+"------------------------------
 
-function! s:TBE_gotoGroupByOrder(order)
-    let s:TBE__currentGroupNumOrder = a:order
-    call s:TBE_renderCurrentGroup(s:TBE_getNthGroupInOrder(a:order))
-endfunction
+let g:TBE_bufferLineFormat = '{%}{h} {+} {name}'
+let g:TBE_groupLineFormat  = '{name}  -{count}-    {path}'
 
-function! s:TBE_gotoNextGroup()
-    let groupCount = s:TBE_getGroupCount()
-    let order = (s:TBE__currentGroupNumOrder + 1) % groupCount
-    call s:TBE_gotoGroupByOrder(order)
-endfunction
+let s:TBE_FORMAT_NUMBER   = '{number}' " buffer right
+let s:TBE_FORMAT_COUNT    = '{count}'  " group right
+let s:TBE_FORMAT_NAME     = '{name}'   " buffer group left
+let s:TBE_FORMAT_PATH     = '{path}'   " buffer group left
+let s:TBE_FORMAT_DIR      = '{dir}'    " buffer left
+let s:TBE_FORMAT_CURRENT  = '{%}'      " buffer left
+let s:TBE_FORMAT_HIDDEN   = '{h}'      " buffer left
+let s:TBE_FORMAT_MODIFIED = '{+}'      " buffer left
 
-function! s:TBE_gotoPrevGroup()
-    let groupCount = s:TBE_getGroupCount()
-    let order = (s:TBE__currentGroupNumOrder - 1 + groupCount) % groupCount
-    call s:TBE_gotoGroupByOrder(order)
-endfunction
+function! g:TBE_useFullfeaturedUI()
+    call s:UI_memoCurrentBuffer()
 
-
-"-----------------------------
-" Expansive group definitions
-"-----------------------------
-
-"
-" Directory Group class
-"
-function! s:TBE_createDirectoryGroup(name, path, delTiming)
-    let groupNum = s:TBE_createGroup(a:name, a:path, a:delTiming)
-
-    let s:Group__bufferAdditionHandler{groupNum} = 's:DirectoryGroup__handleBufferAddition'
-    let s:Group__bufferCollectionHandler{groupNum} = 's:DirectoryGroup__handleBufferAddition'
-    let s:Group__bufferDeletionHandler{groupNum} = 's:DirectoryGroup__handleBufferDeletion'
-
-    return groupNum
-endfunction
-
-function! s:DirectoryGroup__handleBufferAddition(groupNum, bufferNum)
-    if s:Group_getPath(a:groupNum) == s:Buffer_getDir(a:bufferNum)
-        call s:Group_addBufferInOrder(a:groupNum, a:bufferNum)
-        return 1
+    if g:TBE_showMRUFirst
+        let currgrp = s:TBE_findGroupByID('::MRU::')
     else
-        return 0
+        let currgrp = s:TBE_findCurrentDirGroup()
+        if currgrp == {}
+            let currgrp = s:TBE_findGroupByID('::ALL::')
+        endif
+    endif
+    call s:UI_memoLastGroup(currgrp)
+
+    if g:TBE_showVertically | let method = 'vertical new' | else | let method = 'new' | endif
+    let b = s:Buffer_openTempWindow(s:TBE_MAIN_BUFFER_NAME, method, 1)
+    setlocal nocursorcolumn nocursorline
+    call s:FullfeaturedUI_render(s:TBE_lastGroup)
+    call s:FullfeaturedUI_setKeymapping()
+    call s:FullfeaturedUI_setHighlight()
+
+    if g:TBE_alwaysShowGroupWindow
+        call s:FullfeaturedUI_showGroupWindow()
+        call s:UI_backtoMainWindow()
     endif
 endfunction
 
-function! s:DirectoryGroup__handleBufferDeletion(groupNum, bufferNum)
-    call s:Group_removeBuffer(a:groupNum, a:bufferNum)
-    return 1
+function! s:FullfeaturedUI_showGroupWindow()
+    if g:TBE_showVertically | let method = 'new' | else | let method = 'vertical new' | endif
+    let gb = s:Buffer_openTempWindow(s:TBE_GROUP_BUFFER_NAME, method, 1)
+    setlocal nowrap nocursorcolumn nocursorline
+    call s:FullfeaturedUI_renderGroups()
+    call s:FullfeaturedUI_setGroupKeymapping()
+    call s:FullfeaturedUI_setGroupHighlight()
 endfunction
 
-"
-" MRU Group class
-"
-let s:MRUGroup_PATH = '::MRU::'
-
-function! s:TBE_createMRUGroup()
-    let groupNum = s:TBE_findGroupByPath(s:MRUGroup_PATH)
-    if groupNum == s:INVALID_INDEX
-        let groupNum = s:TBE_createGroup(
-                    \ 'MRU Buffers',
-                    \ s:MRUGroup_PATH,
-                    \ s:Group_DELETE_MANUALLY)
-
-        let s:Group__bufferEntranceHandler{groupNum} = 's:MRUGroup__handleBufferEntrance'
-        let s:Group__bufferDeletionHandler{groupNum} = 's:MRUGroup__handleBufferDeletion'
-
-        let s:MRUGroup__actualBufferCount = 0
-    endif
-
-    return groupNum
+function! s:FullfeaturedUI_jumpToGroup()
+    let gi = line('.')
+    if gi < 3 | return | endif
+    call s:UI_backtoMainWindow()
+    call s:FullfeaturedUI_render(s:TBE_groups[gi - 3])
 endfunction
 
-function! s:MRUGroup__handleBufferEntrance(groupNum, bufferNum)
-    let s:Group__bufferCount{a:groupNum} = s:MRUGroup__actualBufferCount
-    call s:Group_removeBuffer(a:groupNum, a:bufferNum)
-    call s:Group_unshiftBuffer(a:groupNum, a:bufferNum)
-    call s:MRUGroup__recalcBufferCount(a:groupNum)
-
-    " don't prevent TBE from creating a (new) normal group
-    return 0
-endfunction
-
-function! s:MRUGroup__handleBufferDeletion(groupNum, bufferNum)
-    let s:Group__bufferCount{a:groupNum} = s:MRUGroup__actualBufferCount
-    call s:Group_removeBuffer(a:groupNum, a:bufferNum)
-    call s:MRUGroup__recalcBufferCount(a:groupNum)
-
-    return 1
-endfunction
-
-function! s:MRUGroup__recalcBufferCount(groupNum)
-    let bufferCount = s:Group_getBufferCount(a:groupNum)
-    let s:MRUGroup__actualBufferCount = bufferCount
-    if g:TBE_mruMax < bufferCount
-        let bufferCount = g:TBE_mruMax
-    endif
-    let s:Group__bufferCount{a:groupNum} = bufferCount
-endfunction
-
-"
-" Search Group class
-"
-let s:SearchGroup_PATH = '::Search::'
-
-function! s:TBE_createSearchGroup(pattern)
-    let groupNum = s:TBE_findGroupByPath(s:SearchGroup_PATH)
-    if groupNum != s:INVALID_INDEX
-        call s:TBE_deleteGroup(groupNum)
-    endif
-
-    let groupNum = s:TBE_createGroup(
-                \ 'Search  /' . a:pattern . '/',
-                \ s:SearchGroup_PATH,
-                \ s:Group_DELETE_ON_EMPTY)
-
-    let s:Group__bufferAdditionHandler{groupNum}   = 's:SearchGroup__handleBufferAddition'
-    let s:Group__bufferCollectionHandler{groupNum} = 's:SearchGroup__handleBufferAddition'
-    let s:Group__bufferDeletionHandler{groupNum}   = 's:SearchGroup__handleBufferDeletion'
-
-    let s:SearchGroup__pattern = a:pattern
-
-    call s:TBE_collectBuffers()
-
-    return groupNum
-endfunction
-
-function! s:SearchGroup__handleBufferAddition(groupNum, bufferNum)
-    if s:SearchGroup_match(s:Buffer_getPath(a:bufferNum))
-        call s:Group_addBufferInOrder(a:groupNum, a:bufferNum)
-    endif
-    return 0
-endfunction
-
-function! s:SearchGroup__handleBufferDeletion(groupNum, bufferNum)
-    call s:Group_removeBuffer(a:groupNum, a:bufferNum)
-    return 1
-endfunction
-
-function! s:SearchGroup_match(str)
-    return (a:str =~ s:SearchGroup__pattern)
-endfunction
-
-
-"-------------------------
-" Fundamental definitions
-"-------------------------
-
-"
-" global variables
-"
-let s:INVALID_INDEX = -1
-
-
-function! s:TBE_createGroup(name, path, delTiming)
-    let newGroupNum = s:TBE__groupCount
-
-    call s:Group_init(newGroupNum, a:name, a:path, a:delTiming)
-    let s:TBE__order2GroupNum{newGroupNum} = newGroupNum
-    let s:TBE__groupCount = newGroupNum + 1
-
-    return newGroupNum
-endfunction
-
-function! s:TBE_deleteGroup(groupNum)
-    " move the last group to where the deleted group is
-    let groupCount = s:TBE_getGroupCount()
-    let lastGroupNum = groupCount - 1
-    if a:groupNum < lastGroupNum
-        " move from lastGroupNum to a:groupNum
-        call s:Group_init(
-                    \ a:groupNum,
-                    \ s:Group__name{lastGroupNum},
-                    \ s:Group__path{lastGroupNum},
-                    \ s:Group__deletionTiming{lastGroupNum})
-        if exists('s:Group__bufferAdditionHandler' . lastGroupNum)
-            let s:Group__bufferAdditionHandler{a:groupNum} = s:Group__bufferAdditionHandler{lastGroupNum}
-        endif
-        if exists('s:Group__bufferDeletionHandler' . lastGroupNum)
-            let s:Group__bufferDeletionHandler{a:groupNum}   = s:Group__bufferDeletionHandler{lastGroupNum}
-        endif
-        if exists('s:Group__bufferEntranceHandler' . lastGroupNum)
-            let s:Group__bufferEntranceHandler{a:groupNum}   = s:Group__bufferEntranceHandler{lastGroupNum}
-        endif
-        if exists('s:Group__bufferCollectionHandler' . lastGroupNum)
-            let s:Group__bufferCollectionHandler{a:groupNum} = s:Group__bufferCollectionHandler{lastGroupNum}
-        endif
-
-        let bufferCount = s:Group__bufferCount{lastGroupNum}
-        let i = 0
-        while i < bufferCount
-            let s:Group__bufferNumber{a:groupNum}_{i} = s:Group__bufferNumber{lastGroupNum}_{i}
-            let i = i + 1
-        endwhile
-        let s:Group__bufferCount{a:groupNum} = bufferCount
-    endif
-
-    " keep order
-    let orderOfDeleted = s:TBE_getOrderOfGroup(a:groupNum)
-    let orderOfLastGroup = s:TBE_getOrderOfGroup(lastGroupNum)
-    " for moving last group to where the deleted group
-    let s:TBE__order2GroupNum{orderOfLastGroup} = s:TBE__order2GroupNum{orderOfDeleted}
-    " move the order elem(corresponding to the deleted group) to tail
-    let i = orderOfDeleted
-    while i < groupCount - 1
-        let s:TBE__order2GroupNum{i} = s:TBE__order2GroupNum{i + 1}
-        let i = i + 1
-    endwhile
-
-    " adjust currently displayed group order
-    let s:TBE__currentGroupNumOrder = 0
-
-    let s:TBE__groupCount = s:TBE__groupCount - 1
-endfunction
-
-function! s:TBE_getGroupCount()
-    return s:TBE__groupCount
-endfunction
-
-function! s:TBE_getNthGroupInOrder(order)
-    return s:TBE__order2GroupNum{a:order}
-endfunction
-
-function! s:TBE_getOrderOfGroup(groupNum)
-    let order = s:INVALID_INDEX
-
-    let groupCount = s:TBE_getGroupCount()
-    let i = 0
-    while i < groupCount
-        if s:TBE__order2GroupNum{i} == a:groupNum
-            let order = i
-            break
-        endif
-        let i = i + 1
-    endwhile
-
-    return order
-endfunction
-
-function! s:TBE_findGroupByPath(path)
-    let groupNum = s:INVALID_INDEX
-
-    let groupCount = s:TBE__groupCount
-    let i = 0
-    while i < groupCount
-        if s:Group_getPath(i) == a:path
-            let groupNum = i
-            break
-        endif
-        let i = i + 1
-    endwhile
-
-    return groupNum
-endfunction
-
-function! s:TBE_collectBuffers()
-    let buffLast = bufnr('$') + 1
-    let i = 1
-
-    while i < buffLast
-        if !s:TBE_isUntouchableBuffer(i)
-            call s:TBE_onBufferCollection(i)
-        endif
-
-        let i = i + 1
-    endwhile
-endfunction
-
-function! s:TBE_isUntouchableBuffer(bufferNum)
-    return
-                \ 0
-                \ || (bufname(a:bufferNum) == s:TBE__BUFFER_NAME)
-                \ || (bufname(a:bufferNum) == s:TBE__GROUP_BUFFER_NAME)
-                \ || (bufname(a:bufferNum) == s:TBE__DUMP_BUFFER_NAME)
-                \ || !buflisted(a:bufferNum)
-                \ || (getbufvar(a:bufferNum, '&filetype') == 'help')
-endfunction
-
-" global event handler definitions
-
-let s:TBE__HANDLER_BUFFER_ADDITION   = 's:Group__bufferAdditionHandler'
-let s:TBE__HANDLER_BUFFER_DELETION   = 's:Group__bufferDeletionHandler'
-let s:TBE__HANDLER_BUFFER_ENTRANCE   = 's:Group__bufferEntranceHandler'
-let s:TBE__HANDLER_BUFFER_COLLECTION = 's:Group__bufferCollectionHandler'
-
-function! s:SID()
-    return matchstr(expand('<sfile>'), '<SNR>\zs\d\+\ze_SID$')
-endfun
-
-function! s:TBE_hookEvents()
-    augroup TinyBufferExplorer
-        autocmd!
-        autocmd  BufAdd    * call <SID>TBE_invokeEventHandler('<SNR>' . s:SID() . '_TBE_onBufferAddition', expand('<abuf>') + 0)
-        autocmd  BufDelete * call <SID>TBE_invokeEventHandler('<SNR>' . s:SID() . '_TBE_onBufferDeletion', expand('<abuf>') + 0)
-        autocmd  BufEnter  * call <SID>TBE_invokeEventHandler('<SNR>' . s:SID() . '_TBE_onBufferEntrance', expand('<abuf>') + 0)
-    augroup END
-endfunction
-
-function! s:TBE_invokeEventHandler(handlerName, bufferNum)
-    if !s:TBE_isUntouchableBuffer(a:bufferNum)
-        call {a:handlerName}(a:bufferNum)
-    endif
-endfunction
-
-" global event handler for buffer collection
-function! s:TBE_onBufferCollection(bufferNum)
-    call s:Buffer_init(a:bufferNum)
-
-    let reaction = s:TBE_notifyAllGroupsOfEvent(s:TBE__HANDLER_BUFFER_COLLECTION, a:bufferNum)
-
-    " if there is no group for the buffer, create new one
-    if !reaction
-        let name = expand('#' . a:bufferNum . ':p:h:t')
-        let path = s:Buffer_getDir(a:bufferNum)
-        if strlen(name) == 0
-            let name = path
-        endif
-
-        let newGroupNum = s:TBE_createDirectoryGroup(name, path, s:Group_DELETE_ON_EMPTY)
-        call s:Group_addBuffer(newGroupNum, a:bufferNum)
-    endif
-endfunction
-
-" global event handler for buffer addition
-function! s:TBE_onBufferAddition(bufferNum)
-    let reaction = s:TBE_notifyAllGroupsOfEvent(s:TBE__HANDLER_BUFFER_ADDITION, a:bufferNum)
-
-    " if there is no group for the buffer, create new one
-    if !reaction
-        let name = expand('#' . a:bufferNum . ':p:h:t')
-        let path = s:Buffer_getDir(a:bufferNum)
-        if strlen(name) == 0
-            let name = path
-        endif
-
-        let newGroupNum = s:TBE_createDirectoryGroup(name, path, s:Group_DELETE_ON_EMPTY)
-        call s:Group_addBuffer(newGroupNum, a:bufferNum)
-    endif
-endfunction
-
-" global event handler for buffer deletion
-function! s:TBE_onBufferDeletion(bufferNum)
-    call s:TBE_notifyAllGroupsOfEvent(s:TBE__HANDLER_BUFFER_DELETION, a:bufferNum)
-
-    call s:TBE_dump('notified deletion of ' . s:Buffer_getName(a:bufferNum))
-
-    let gi = 0
-    while gi < s:TBE_getGroupCount()
-        if (s:Group_getBufferCount(gi) == 0)
-                    \ && (s:Group_getDeletionTiming(gi) == s:Group_DELETE_ON_EMPTY)
-            call s:TBE_deleteGroup(gi)
-            call s:TBE_dump('group ' . s:Group_getName(gi) . ' is deleted')
-        else
-            let gi = gi + 1
-        endif
-    endwhile
-endfunction
-
-" global event handler for buffer entrance
-function! s:TBE_onBufferEntrance(bufferNum)
-    return s:TBE_notifyAllGroupsOfEvent(s:TBE__HANDLER_BUFFER_ENTRANCE, a:bufferNum)
-endfunction
-
-function! s:TBE_notifyAllGroupsOfEvent(eventHandlerName, bufferNum)
-    call s:Buffer_init(a:bufferNum)
-
-    let groupCount = s:TBE__groupCount
-    let gi = 0
-    let reaction = 0
-    while gi < groupCount
-        if exists(a:eventHandlerName . gi)
-            let reaction = reaction + {{a:eventHandlerName}{gi}}(gi, a:bufferNum)
-        endif
-        let gi = gi + 1
-    endwhile
-
-    return reaction
-endfunction
-
-
-".............
-" Group class
-".............
-let s:Group_DELETE_MANUALLY = 0
-let s:Group_DELETE_ON_EMPTY = 1
-
-function! s:Group_init(groupNum, name, path, delTiming)
-    let s:Group__name{a:groupNum} = a:name
-    let s:Group__path{a:groupNum} = a:path
-    let s:Group__deletionTiming{a:groupNum} = a:delTiming
-    let s:Group__bufferCount{a:groupNum} = 0
-"    let s:Group__bufferNumber{a:groupNum}_{n} = buffer number
-
-    " init event handlers
-    " function! additionHandler(groupNum, bufferNum) : non-0 if reacted
-    unlet! s:Group__bufferAdditionHandler{a:groupNum}
-    unlet! s:Group__bufferDeletionHandler{a:groupNum}
-    unlet! s:Group__bufferEntranceHandler{a:groupNum}
-    unlet! s:Group__bufferCollectionHandler{a:groupNum}
-endfunction
-
-function! s:Group_getName(groupNum)
-    return s:Group__name{a:groupNum}
-endfunction
-
-function! s:Group_getPath(groupNum)
-    return s:Group__path{a:groupNum}
-endfunction
-
-function! s:Group_getDeletionTiming(groupNum)
-    return s:Group__deletionTiming{a:groupNum}
-endfunction
-
-function! s:Group_getBufferCount(groupNum)
-    return s:Group__bufferCount{a:groupNum}
-endfunction
-
-function! s:Group_getNthBuffer(groupNum, n)
-    return s:Group__bufferNumber{a:groupNum}_{a:n}
-endfunction
-
-function! s:Group_indexOfBuffer(groupNum, bufferNum)
-    let index = s:INVALID_INDEX
-
-    let i = 0
-    let outOfBound = s:Group__bufferCount{a:groupNum}
-    while i < outOfBound
-        if a:bufferNum == s:Group__bufferNumber{a:groupNum}_{i}
-            let index = i
-            break
-        endif
-
-        let i = i + 1
-    endwhile
-
-    return index
-endfunction
-
-" return non-0 value if this group added the buffer
-function! s:Group_addBuffer(groupNum, bufferNum)
-    let added = 0
-
-    let index = s:Group_indexOfBuffer(a:groupNum, a:bufferNum)
-    if index == s:INVALID_INDEX
-        if !exists('s:Buffer__name' . a:bufferNum)
-            call s:Buffer_init(a:bufferNum)
-        endif
-
-        let bufferCount = s:Group__bufferCount{a:groupNum}
-        let s:Group__bufferNumber{a:groupNum}_{bufferCount} = a:bufferNum
-        let s:Group__bufferCount{a:groupNum} = bufferCount + 1
-
-        let added = 1
-    endif
-
-    return added
-endfunction
-
-" return non-0 value if this group deleted the buffer
-function! s:Group_removeBuffer(groupNum, bufferNum)
-    let deleted = 0
-
-    let index = s:Group_indexOfBuffer(a:groupNum, a:bufferNum)
-    if index != s:INVALID_INDEX
-        let bufferCount = s:Group__bufferCount{a:groupNum}
-        let i = index
-        while i < bufferCount - 1
-            let s:Group__bufferNumber{a:groupNum}_{i} = s:Group__bufferNumber{a:groupNum}_{i + 1}
-            let i = i + 1
-        endwhile
-
-        let s:Group__bufferCount{a:groupNum} = bufferCount - 1
-
-        let deleted = 1
-    endif
-
-    return deleted
-endfunction
-
-function! s:Group_addBufferInOrder(groupNum, bufferNum)
-    let added = s:Group_addBuffer(a:groupNum, a:bufferNum)
-    if !added
+function! s:FullfeaturedUI_render(group)
+    let g = a:group
+    if g == {}
         return
     endif
 
-    let i = s:Group_getBufferCount(a:groupNum) - 1
-    let name = s:Buffer_getName(a:bufferNum)
-    while ((0 < i) && (name < s:Buffer_getName(s:Group_getNthBuffer(a:groupNum, i - 1))))
-        let s:Group__bufferNumber{a:groupNum}_{i} = s:Group__bufferNumber{a:groupNum}_{i - 1}
-        let i = i - 1
-    endwhile
+    call s:UI_memoLastGroup(g)
 
-    let s:Group__bufferNumber{a:groupNum}_{i} = a:bufferNum
-endfunction
-
-function! s:Group_unshiftBuffer(groupNum, bufferNum)
-    let srcIndex = s:Group_indexOfBuffer(a:groupNum, a:bufferNum)
-    if srcIndex == s:INVALID_INDEX
-        call s:Group_addBuffer(a:groupNum, a:bufferNum)
-        let srcIndex = s:Group_getBufferCount(a:groupNum) - 1
+    " build a view
+    let header = g.title . '  -' . len(g.buffers) . '-    ' . g.id
+    let nextg = s:TBE_findNextGroup(g)
+    if nextg != {}
+        let header = header . '    Tab=>' . nextg.title
     endif
 
-    " move
-    let i = srcIndex
-    while 0 < i
-        let s:Group__bufferNumber{a:groupNum}_{i} = s:Group__bufferNumber{a:groupNum}_{i - 1}
-        let i = i - 1
-    endwhile
-    let s:Group__bufferNumber{a:groupNum}_{0} = a:bufferNum
-endfunction
+    let s = s:FullfeaturedUI_generateBufferLines(g)
 
-" return non-0 value if this group added OR ALREADY CONTAINS the buffer
-function! s:Group_handleBufferAddition(groupNum, bufferNum)
-    if exists('s:Group__bufferAdditionHandler' . a:groupNum)
-        return {s:Group__bufferAdditionHandler{a:groupNum}}(a:groupNum, a:bufferNum)
+    setlocal modifiable noreadonly lazyredraw
+    let old_yank = @"
+    let old_yank_star = @*
+    %delete
+    call setline(1, header)
+    call setline(2, '')
+    call setline(3, s)
+    let @* = old_yank_star
+    let @" = old_yank
+    setlocal nomodifiable readonly lazyredraw
+
+    " adjust height (+2 for group view and an empty line)
+    call s:FullfeaturedUI_adjustWindowSize()
+
+
+    " move to current buffer
+    let b = s:Buffer_create(s:Buffer_currentBufferNumber)
+    let bi = index(s:TBE_lastGroup.buffers, b)
+    if bi != -1
+        execute (bi + 3)
     else
-        return 0
+        execute 3
     endif
 endfunction
 
-function! s:Group_handleBufferDeletion(groupNum, bufferNum)
-    if exists('s:Group__bufferDeletionHandler' . a:groupNum)
-        return {s:Group__bufferDeletionHandler{a:groupNum}}(a:groupNum, a:bufferNum)
+function! s:FullfeaturedUI_generateBufferLines(group)
+    " max width
+    let b = s:Buffer_create(0)
+    " number
+    let numberWid = 0
+    if stridx(g:TBE_bufferLineFormat, s:TBE_FORMAT_NUMBER) != -1
+        let numberWid = s:FullfeaturedUI_getMaxWidth(a:group, b.getNumber)
+    endif
+    " name
+    let nameWid = 0
+    if stridx(g:TBE_bufferLineFormat, s:TBE_FORMAT_NAME) != -1
+        let nameWid = s:FullfeaturedUI_getMaxWidth(a:group, b.getName)
+    endif
+    " path
+    let pathWid = 0
+    if stridx(g:TBE_bufferLineFormat, s:TBE_FORMAT_PATH) != -1
+        let pathWid = s:FullfeaturedUI_getMaxWidth(a:group, b.getPath)
+    endif
+    " dir
+    let dirWid = 0
+    if stridx(g:TBE_bufferLineFormat, s:TBE_FORMAT_DIR) != -1
+        let dirWid = s:FullfeaturedUI_getMaxWidth(a:group, b.getDirectory)
+    endif
+
+    let result  = []
+    for b in a:group.buffers
+        " embed values
+        let s = g:TBE_bufferLineFormat
+
+        " number
+        let number = repeat(' ', numberWid - strlen(string(b.number))) . string(b.number)
+        let s = substitute(s, '\V' . s:TBE_FORMAT_NUMBER, number, 'g')
+        " name
+        let name = b.getName() . repeat(' ', nameWid - strlen(b.getName()))
+        let s = substitute(s, '\V' . s:TBE_FORMAT_NAME, escape(name, '\'), 'g')
+        " path
+        let path = b.getPath() . repeat(' ', pathWid - strlen(b.getPath()))
+        let s = substitute(s, '\V' . s:TBE_FORMAT_PATH, escape(path, '\'), 'g')
+        " dir
+        let dir = b.getDirectory() . repeat(' ', dirWid - strlen(b.getDirectory()))
+        let s = substitute(s, '\V' . s:TBE_FORMAT_DIR, escape(dir, '\'), 'g')
+        " current
+        if b.isCurrent()
+            let current = '%'
+        elseif b.isAlternate()
+            let current = '#'
+        else
+            let current = ' '
+        endif
+        let s = substitute(s, '\V' . s:TBE_FORMAT_CURRENT, current, 'g')
+        " hidden
+        if b.isHidden()
+            let hidden = 'h'
+        else
+            let hidden = 'a'
+        endif
+        let s = substitute(s, '\V' . s:TBE_FORMAT_HIDDEN, hidden, 'g')
+        " modified
+        if b.isModified()
+            let modified = '+'
+        else
+            let modified = ' '
+        endif
+        let s = substitute(s, '\V' . s:TBE_FORMAT_MODIFIED, modified, 'g')
+
+        call add(result, s)
+    endfor
+
+    return result
+endfunction
+
+function! s:FullfeaturedUI_setKeymapping()
+    " switching group
+    noremap  <silent><buffer>  g        :call <SID>FullfeaturedUI_showGroupWindow()<CR>
+    noremap  <silent><buffer>  G        :call <SID>FullfeaturedUI_showGroupWindow()<CR>
+    noremap  <silent><buffer>  f        :call <SID>FullfeaturedUI_showGroupWindow()<CR>
+    noremap  <silent><buffer>  F        :call <SID>FullfeaturedUI_showGroupWindow()<CR>
+    noremap  <silent><buffer>  <TAB>    :call <SID>FullfeaturedUI_switchGroup(+1)<CR> 
+    noremap  <silent><buffer>  l        :call <SID>FullfeaturedUI_switchGroup(+1)<CR> 
+    noremap  <silent><buffer>  <RIGHT>  :call <SID>FullfeaturedUI_switchGroup(+1)<CR> 
+    noremap  <silent><buffer>  <S-TAB>  :call <SID>FullfeaturedUI_switchGroup(-1)<CR>
+    noremap  <silent><buffer>  h        :call <SID>FullfeaturedUI_switchGroup(-1)<CR>
+    noremap  <silent><buffer>  <LEFT>   :call <SID>FullfeaturedUI_switchGroup(-1)<CR>
+
+    noremap  <silent><buffer>  m        :call <SID>FullfeaturedUI_switchMRUGroup()<CR>
+    noremap  <silent><buffer>  M        :call <SID>FullfeaturedUI_switchMRUGroup()<CR>
+    noremap  <silent><buffer>  a        :call <SID>FullfeaturedUI_switchALLGroup()<CR>
+    noremap  <silent><buffer>  A        :call <SID>FullfeaturedUI_switchALLGroup()<CR>
+    noremap  <silent><buffer>  n        :call <SID>FullfeaturedUI_switchDirGroup()<CR>
+    noremap  <silent><buffer>  N        :call <SID>FullfeaturedUI_switchDirGroup()<CR>
+
+    " searching
+    noremap  <silent><buffer>  /        :call <SID>FullfeaturedUI_render(<SID>UI_showSearchGroup())<CR>
+
+    " jump
+    noremap  <silent><buffer>  <CR>     :call <SID>FullfeaturedUI_jumpToBuffer()<CR>
+    noremap  <silent><buffer>  <C-J>    :call <SID>FullfeaturedUI_jumpToBuffer()<CR>
+
+    " exit
+    noremap  <silent><buffer>  <ESC>    :call <SID>UI_closeBufferWindow()<CR>
+    map      <silent><buffer>  q        <ESC>
+
+    " delete buffer
+    noremap  <silent><buffer>  d        :call <SID>FullfeaturedUI_deleteBuffer()<CR>
+    map      <silent><buffer>  D        :call <SID>FullfeaturedUI_deleteBuffer()<CR>
+
+    noremap  <silent><buffer>  r        :call <SID>TBE_init()<CR>:call g:TBE_useFullfeaturedUI()<CR>
+
+    " do nothing
+    noremap  <silent><buffer>  v        V
+    noremap  <silent><buffer>  <C-v>    V
+    vnoremap <silent><buffer>  <ESC>    <ESC>
+endfunction
+
+function! s:FullfeaturedUI_setGroupKeymapping()
+    noremap  <silent><buffer>  <ESC>    :call <SID>UI_backtoMainWindow()<CR>
+    noremap  <silent><buffer>  q        :call <SID>UI_backtoMainWindow()<CR>
+
+    " jump
+    noremap  <silent><buffer>  <CR>     :call <SID>FullfeaturedUI_jumpToGroup()<CR>
+    noremap  <silent><buffer>  <C-J>    :call <SID>FullfeaturedUI_jumpToGroup()<CR>
+    noremap  <silent><buffer>  g        :call <SID>FullfeaturedUI_jumpToGroup()<CR>
+    noremap  <silent><buffer>  G        :call <SID>FullfeaturedUI_jumpToGroup()<CR>
+    noremap  <silent><buffer>  f        :call <SID>FullfeaturedUI_jumpToGroup()<CR>
+    noremap  <silent><buffer>  F        :call <SID>FullfeaturedUI_jumpToGroup()<CR>
+endfunction
+
+function! s:FullfeaturedUI_setGroupHighlight()
+
+endfunction
+
+function! s:FullfeaturedUI_setHighlight()
+    " group
+    syntax match Directory /\V\%1l\^\.\*\$/
+    " group title
+    syntax match TabLine   /\V\%1l\^\.\+  -/me=e-3 containedin=ALL contained
+    " group tab key
+    syntax match UnderLined   /\V\%1lTab=>/ containedin=ALL contained
+endfunction
+
+function! s:FullfeaturedUI_renderGroups()
+    " build a view
+    let header = '::Groups::  -' . string(len(s:TBE_groups)) . '-'
+    let s = s:FullfeaturedUI_generateGroupLines()
+
+    setlocal modifiable noreadonly lazyredraw
+    let old_yank = @"
+    let old_yank_star = @*
+    %delete
+    call setline(1, header)
+    call setline(2, '')
+    call setline(3, s)
+    let @* = old_yank_star
+    let @" = old_yank
+    setlocal nomodifiable readonly lazyredraw
+
+    " adjust height (+2 for group view and an empty line)
+    call s:FullfeaturedUI_adjustWindowSize()
+
+    " move to current group
+    let gi = index(s:TBE_groups, s:TBE_lastGroup)
+    if gi != -1
+        execute (gi + 3)
     else
-        return 0
+        execute 3
     endif
+    normal 0
 endfunction
 
-function! s:Group_handleBufferEntrance(groupNum, bufferNum)
-    if exists('s:Group__bufferEntranceHandler' . a:groupNum)
-        return {s:Group__bufferEntranceHandler{a:groupNum}}(a:groupNum, a:bufferNum)
+function! s:FullfeaturedUI_adjustWindowSize()
+    if g:TBE_showVertically
+        return
+    endif
+
+    let height = 3
+    let buffheight = len(getbufline(s:TBE_MAIN_BUFFER_NAME, 1, '$'))
+    let groupheight  = len(getbufline(s:TBE_GROUP_BUFFER_NAME, 1, '$'))
+
+    if buffheight < groupheight
+        let height = groupheight
     else
-        return 0
+        let height = buffheight
+    endif
+
+    execute 'resize ' . height
+endfunction
+
+function! s:FullfeaturedUI_generateGroupLines()
+    " max width
+    let g = s:Group_create('id', 'title', function('s:Group_defaultHandler'), function('s:Group_defaultHandler'), function('s:Group_defaultHandler'), function('s:Group_defaultHandler'))
+    " name
+    let nameWid = 0
+    if stridx(g:TBE_groupLineFormat, s:TBE_FORMAT_NAME) != -1
+        let nameWid = s:FullfeaturedUI_getGroupMaxWidth(g.getTitle)
+    endif
+    " path
+    let pathWid = 0
+    if stridx(g:TBE_groupLineFormat, s:TBE_FORMAT_PATH) != -1
+        let pathWid = s:FullfeaturedUI_getGroupMaxWidth(g.getID)
+    endif
+    " count
+    let countWid = 0
+    if stridx(g:TBE_groupLineFormat, s:TBE_FORMAT_COUNT) != -1
+        let countWid = s:FullfeaturedUI_getGroupMaxWidth(g.getBufferCount)
+    endif
+
+    let result = []
+    for g in s:TBE_groups
+        " embed values
+        let s = g:TBE_groupLineFormat
+
+        " name
+        let name = g.getTitle() . repeat(' ', nameWid - strlen(g.getTitle()))
+        let s = substitute(s, '\V' . s:TBE_FORMAT_NAME, escape(name, '\'), 'g')
+        " path
+        let path = g.getID() . repeat(' ', nameWid - strlen(g.getID()))
+        let s = substitute(s, '\V' . s:TBE_FORMAT_PATH, escape(path, '\'), 'g')
+        " count
+        let bcount = repeat(' ', countWid - strlen(g.getBufferCount())) . g.getBufferCount()
+        let s = substitute(s, '\V' . s:TBE_FORMAT_COUNT, escape(bcount, '\'), 'g')
+
+        call add(result, s)
+    endfor
+    return result
+endfunction
+
+function! s:FullfeaturedUI_jumpToBuffer()
+    let buffnum = s:FullfeaturedUI__getBufferNumberUnderCursor()
+
+    if buffnum != 0
+        call s:UI_jumpToBuffer(buffnum, 1)
     endif
 endfunction
 
-function! s:Group_handleBufferCollection(groupNum, bufferNum)
-    if exists('s:Group__bufferCollectionHandler' . a:groupNum)
-        return {s:Group__bufferCollectionHandler{a:groupNum}}(a:groupNum, a:bufferNum)
+function! s:FullfeaturedUI_deleteBuffer() range
+    if a:firstline < 3
+        return
+    endif
+
+    let bb = []
+    for bi in range(a:firstline, a:lastline)
+        let b = s:TBE_lastGroup.buffers[bi - 3]
+        cal add(bb, b.number)
+    endfor
+
+    if len(bb) != 0
+        call s:UI_deleteBuffer(bb)
+    endif
+
+    call s:FullfeaturedUI_render(s:TBE_lastGroup)
+endfunction
+
+function! s:FullfeaturedUI__getBufferNumberUnderCursor()
+    let l = line('.')
+    if l < 3 | return 0 | endif
+    return s:TBE_lastGroup.buffers[l - 3].number
+endfunction
+
+function! s:FullfeaturedUI_switchGroup(delta)
+    let gi = s:TBE_findGroupIndexOf(s:TBE_lastGroup)
+    if gi == -1
+        return
+    endif
+
+    let gi = (gi + a:delta + len(s:TBE_groups)) % len(s:TBE_groups)
+    let g = s:TBE_groups[gi]
+
+    let s:TBE_lastGroup = g
+    call s:FullfeaturedUI_render(g)
+endfunction
+
+function! s:FullfeaturedUI_switchMRUGroup()
+    let g = s:TBE_findGroupByID('::MRU::')
+    if g == {}
+        return
+    endif
+    call s:FullfeaturedUI_render(g)
+endfunction
+
+function! s:FullfeaturedUI_switchALLGroup()
+    let g = s:TBE_findGroupByID('::ALL::')
+    if g == {}
+        return
+    endif
+    call s:FullfeaturedUI_render(g)
+endfunction
+
+function! s:FullfeaturedUI_switchDirGroup()
+    let g = s:TBE_findCurrentDirGroup()
+    if g == {}
+        return
+    endif
+    call s:FullfeaturedUI_render(g)
+endfunction
+
+function! s:FullfeaturedUI_getMaxWidth(group, prop)
+    let maxwid = 0
+    for b in a:group.buffers
+        let w = strlen(call(a:prop, [], b))
+        if maxwid < w | let maxwid = w | endif
+    endfor
+    return maxwid
+endfunction
+
+function! s:FullfeaturedUI_getGroupMaxWidth(prop)
+    let maxwid = 0
+    for g in s:TBE_groups
+        let w = strlen(call(a:prop, [], g))
+        if maxwid < w | let maxwid = w | endif
+    endfor
+    return maxwid
+endfunction
+
+"------------------------------
+" SimpleGroup UI
+"------------------------------
+
+function! g:TBE_useSimpleGroupUI()
+    call s:UI_memoCurrentBuffer()
+
+    if g:TBE_showMRUFirst
+        let currgrp = s:TBE_findGroupByID('::MRU::')
     else
-        return 0
+        let currgrp = s:TBE_findCurrentDirGroup()
+        if currgrp == {}
+            let currgrp = s:TBE_findGroupByID('::ALL::')
+        endif
+    endif
+    call s:UI_memoLastGroup(currgrp)
+
+    if g:TBE_showVertically | let method = 'vertical new' | else | let method = 'new' | endif
+    let b = s:Buffer_openTempWindow(s:TBE_MAIN_BUFFER_NAME, method, 1)
+    setlocal wrap nocursorcolumn nocursorline
+    call s:SimpleGroupUI_render(s:TBE_lastGroup)
+    call s:SimpleGroupUI_setKeymapping()
+    call s:SimpleGroupUI_setHighlight()
+endfunction
+
+function! s:SimpleGroupUI_render(group)
+    let g = a:group
+    if g == {}
+        return
+    endif
+
+    call s:UI_memoLastGroup(g)
+
+    " build a view
+    let header = g.title . '  -' . len(g.buffers) . '-    ' . g.id
+    let nextg = s:TBE_findNextGroup(g)
+    if nextg != {}
+        let header = header . '    Tab=>' . nextg.title
+    endif
+
+    let s = ''
+    for b in g.buffers
+        if strlen(s) != 0
+            let s = s . ' '
+        endif
+
+        let s = s . '[' . b.number . ':' 
+        if b.isModified() | let s = s . '(+)' | endif
+        let s = s . b.getName() . ']'
+    endfor
+
+    setlocal modifiable noreadonly lazyredraw
+    let old_yank = @"
+    let old_yank_star = @*
+    %delete
+    call setline(1, header)
+    call setline(2, s)
+    let @* = old_yank_star
+    let @" = old_yank
+    setlocal nomodifiable readonly lazyredraw
+
+    " adjust height (+1 for group view)
+    if !g:TBE_showVertically
+        let height = ((strlen(s) + winwidth(0) - 1) / winwidth(0) + 1)
+        if height < 2
+            let height = 2
+        endif
+        execute 'resize ' . height
+    endif
+
+    " move to current buffer
+    let old_slash = @/
+    call setpos('.', [bufnr('%'), 2, 1, 0])
+    call search('\V\<' . s:Buffer_currentBufferNumber . ':')
+    call search('\V:')
+    let @/ = old_slash
+endfunction
+
+function! s:SimpleGroupUI_setKeymapping()
+    "noremap  <silent><buffer>  l        f[:call search(':')<CR>
+    noremap  <silent><buffer>  l        :call search('\V\%>1l:')<CR>
+    map      <silent><buffer>  <RIGHT>  l
+    "noremap  <silent><buffer>  h        F]F[:call search(':')<CR>
+    noremap  <silent><buffer>  h        :call search('\V\%>1l:', 'b')<CR>
+    map      <silent><buffer>  <LEFT>   h
+    noremap  <silent><buffer>  j        gj:call search('\V\%>1l:', 'b')<CR>
+    map      <silent><buffer>  <DOWN>   j
+    noremap  <silent><buffer>  k        gk:call search('\V\%>1l:', 'b')<CR>
+    map      <silent><buffer>  <UP>     k
+    map      <silent><buffer>  w        l
+    map      <silent><buffer>  e        l
+    map      <silent><buffer>  b        h
+
+    " switching group
+    noremap  <silent><buffer>  g        :call <SID>SimpleGroupUI_selectGroup()<CR>
+    noremap  <silent><buffer>  G        :call <SID>SimpleGroupUI_selectGroup()<CR>
+    noremap  <silent><buffer>  <TAB>    :call <SID>SimpleGroupUI_switchGroup(+1)<CR> 
+    noremap  <silent><buffer>  <S-TAB>  :call <SID>SimpleGroupUI_switchGroup(-1)<CR>
+    noremap  <silent><buffer>  m        :call <SID>SimpleGroupUI_switchMRUGroup()<CR>
+    noremap  <silent><buffer>  M        :call <SID>SimpleGroupUI_switchMRUGroup()<CR>
+    noremap  <silent><buffer>  a        :call <SID>SimpleGroupUI_switchALLGroup()<CR>
+    noremap  <silent><buffer>  A        :call <SID>SimpleGroupUI_switchALLGroup()<CR>
+    noremap  <silent><buffer>  n        :call <SID>SimpleGroupUI_switchDirGroup()<CR>
+    noremap  <silent><buffer>  N        :call <SID>SimpleGroupUI_switchDirGroup()<CR>
+
+    " searching
+    noremap  <silent><buffer>  /        :call <SID>SimpleGroupUI_render(<SID>UI_showSearchGroup())<CR>
+
+    " jump
+    noremap  <silent><buffer>  <CR>     :call <SID>SimpleGroupUI_jumpToBuffer()<CR>
+    noremap  <silent><buffer>  <C-J>    :call <SID>SimpleGroupUI_jumpToBuffer()<CR>
+
+    " exit
+    noremap  <silent><buffer>  <ESC>    :call <SID>UI_closeBufferWindow()<CR>
+    map      <silent><buffer>  q        <ESC>
+
+    " delete buffer
+    noremap  <silent><buffer>  d        :call <SID>SimpleGroupUI_deleteBuffer()<CR>
+    map      <silent><buffer>  D        :call <SID>SimpleGroupUI_deleteBuffer()<CR>
+
+    noremap  <silent><buffer>  r        :call <SID>TBE_init()<CR>:call g:TBE_useSimpleGroupUI()<CR>
+
+    " do nothing
+    noremap  <silent><buffer>  v        <NOP>
+    noremap  <silent><buffer>  V        <NOP>
+    noremap  <silent><buffer>  <C-v>    <NOP>
+endfunction
+
+function! s:SimpleGroupUI_setHighlight()
+    " group
+    syntax match Directory /\V\%1l\^\.\*\$/
+    " group title
+    syntax match TabLine   /\V\%1l\^\.\+  -/me=e-3 containedin=ALL contained
+    " group tab key
+    syntax match UnderLined   /\V\%1lTab=>/ containedin=ALL contained
+endfunction
+
+function! s:SimpleGroupUI_selectGroup()
+    let glist = map(copy(s:TBE_groups), 'v:val.title . " " . v:val.id')
+    for gi in range(len(glist))
+        let glist[gi] = gi . ':' . glist[gi]
+    endfor
+
+    let gi = inputlist(glist)
+    if gi < 0 || gi >= len(glist) | return | endif
+
+    call s:SimpleGroupUI_render(s:TBE_groups[gi])
+endfunction
+
+function! s:SimpleGroupUI_switchGroup(delta)
+    let gi = s:TBE_findGroupIndexOf(s:TBE_lastGroup)
+    if gi == -1
+        return
+    endif
+
+    let gi = (gi + a:delta + len(s:TBE_groups)) % len(s:TBE_groups)
+    let g = s:TBE_groups[gi]
+
+    let s:TBE_lastGroup = g
+    call s:SimpleGroupUI_render(g)
+endfunction
+
+function! s:SimpleGroupUI_switchMRUGroup()
+    let g = s:TBE_findGroupByID('::MRU::')
+    if g == {}
+        return
+    endif
+    call s:SimpleGroupUI_render(g)
+endfunction
+
+function! s:SimpleGroupUI_switchALLGroup()
+    let g = s:TBE_findGroupByID('::ALL::')
+    if g == {}
+        return
+    endif
+    call s:SimpleGroupUI_render(g)
+endfunction
+
+function! s:SimpleGroupUI_switchDirGroup()
+    let g = s:TBE_findCurrentDirGroup()
+    if g == {}
+        return
+    endif
+    call s:SimpleGroupUI_render(g)
+endfunction
+
+function! s:SimpleGroupUI__getBufferNumberUnderCursor()
+    let old_t = @t
+
+    " selecte appropriate text
+    normal f[
+    normal F[
+    normal "tyi[
+    let selected = @t
+
+    let @t = old_t
+
+    let buffnum = substitute(selected, '\v(\d+).*', '\1', '')
+    if strlen(buffnum) == 0
+        let buffnum = 0
+    endif
+
+    return buffnum
+endfunction
+
+function! s:SimpleGroupUI_jumpToBuffer()
+    let buffnum = s:SimpleGroupUI__getBufferNumberUnderCursor()
+
+    if buffnum != 0
+        call s:UI_jumpToBuffer(buffnum, 1)
+    endif
+endfunction
+
+function! s:SimpleGroupUI_deleteBuffer()
+    let buffnum = s:SimpleGroupUI__getBufferNumberUnderCursor()
+
+    if buffnum != 0
+        call s:UI_deleteBuffer([buffnum])
+    endif
+
+    call s:SimpleGroupUI_render(s:TBE_lastGroup)
+endfunction
+
+
+"------------------------------
+" Minimal UI
+"------------------------------
+
+function! g:TBE_useMinimalUI()
+    call s:UI_memoCurrentBuffer()
+
+    if g:TBE_showVertically | let method = 'vertical new' | else | let method = 'new' | endif
+    let b = s:Buffer_openTempWindow(s:TBE_MAIN_BUFFER_NAME, method, 1)
+    setlocal wrap nocursorcolumn nocursorline
+    call s:MinimalUI_render()
+    call s:MinimalUI_setKeymapping()
+endfunction
+
+function! s:MinimalUI_render()
+    let g = s:TBE_findGroupByID('::ALL::')
+    if g == {}
+        return
+    endif
+
+    " build a view
+    let s = ''
+    for b in g.buffers
+        if strlen(s) != 0
+            let s = s . ' '
+        endif
+        let s = s . '[' . b.number . ':' . b.getName() . ']'
+    endfor
+
+    setlocal modifiable noreadonly
+    let old_yank = @"
+    let old_yank_star = @*
+    %delete
+    call setline(1, s)
+    let @* = old_yank_star
+    let @" = old_yank
+    setlocal nomodifiable readonly
+
+    " adjust height
+    if !g:TBE_showVertically
+        execute 'resize ' . ((strlen(s) + winwidth(0) - 1) / winwidth(0))
+    endif
+
+    " move to current buffer
+    let old_slash = @/
+    call search('\V' . s:Buffer_currentBufferNumber . ':')
+    call search('\V:')
+    let @/ = old_slash
+endfunction
+
+function! s:MinimalUI_setKeymapping()
+    "noremap  <silent><buffer>  l        f[:call search(':')<CR>
+    noremap  <silent><buffer>  l        :call search(':')<CR>
+    map      <silent><buffer>  <RIGHT>  l
+    "noremap  <silent><buffer>  h        F]F[:call search(':')<CR>
+    noremap  <silent><buffer>  h        :call search(':', 'b')<CR>
+    map      <silent><buffer>  <LEFT>   h
+    noremap  <silent><buffer>  j        gj:call search(':', 'b')<CR>
+    map      <silent><buffer>  <DOWN>   j
+    noremap  <silent><buffer>  k        gk:call search(':', 'b')<CR>
+    map      <silent><buffer>  <UP>     k
+    map      <silent><buffer>  w        l
+    map      <silent><buffer>  e        l
+    map      <silent><buffer>  b        h
+
+    " jump
+    noremap  <silent><buffer>  <CR>     :call <SID>MinimalUI_jumpToBuffer()<CR>
+    noremap  <silent><buffer>  <C-J>    :call <SID>MinimalUI_jumpToBuffer()<CR>
+
+    " exit
+    noremap  <silent><buffer>  <ESC>    :call <SID>UI_closeBufferWindow()<CR>
+    map      <silent><buffer>  q        <ESC>
+
+    " delete buffer
+    noremap  <silent><buffer>  d        :call <SID>MinimalUI_deleteBuffer()<CR>
+    map      <silent><buffer>  D        :call <SID>MinimalUI_deleteBuffer()<CR>
+
+    " do nothing
+    noremap  <silent><buffer>  v        <NOP>
+    noremap  <silent><buffer>  V        <NOP>
+    noremap  <silent><buffer>  <C-v>    <NOP>
+endfunction
+
+function! s:MinimalUI__getBufferNumberUnderCursor()
+    let old_t = @t
+
+    " selecte appropriate text
+    normal f[
+    normal F[
+    normal "tyi[
+    let selected = @t
+
+    let @t = old_t
+
+    let buffnum = substitute(selected, '\v(\d+).*', '\1', '')
+    if strlen(buffnum) == 0
+        let buffnum = 0
+    endif
+
+    return buffnum
+endfunction
+
+function! s:MinimalUI_jumpToBuffer()
+    let buffnum = s:MinimalUI__getBufferNumberUnderCursor()
+
+    if buffnum != 0
+        call s:UI_jumpToBuffer(buffnum, 1)
+    endif
+endfunction
+
+function! s:MinimalUI_deleteBuffer()
+    let buffnum = s:MinimalUI__getBufferNumberUnderCursor()
+
+    if buffnum != 0
+        call s:UI_deleteBuffer([buffnum])
+    endif
+
+    call s:MinimalUI_render()
+endfunction
+
+"------------------------------
+" MRU group
+"------------------------------
+
+function! s:MRUGroup_install()
+    let mruGroup = s:Group_create(
+                \ '::MRU::',
+                \ 'MRU buffers',
+                \ function('s:MRUGroup_onBufAdd'), 
+                \ function('s:Group_defaultHandler'), 
+                \ function('s:MRUGroup_onBufAdd'), 
+                \ function('s:Group_defaultHandler'), 
+                \ )
+    call s:TBE_addGroup(mruGroup)
+endfunction
+
+function! s:MRUGroup_onBufAdd(buffer) dict
+    if s:TBE_bufferIsUntouchableForMRU(a:buffer)
+        return
+    endif
+
+    let idx = index(self.buffers, a:buffer)
+    if idx != -1
+        call remove(self.buffers, idx)
+    endif
+    call insert(self.buffers, a:buffer, 0)
+
+    if g:TBE_mruMax < len(self.buffers)
+        call remove(self.buffers, g:TBE_mruMax, len(self.buffers) - 1)
     endif
 endfunction
 
 
-"..............
-" Buffer class
-"..............
-function! s:Buffer_init(bufferNum)
-    let s:Buffer__name{a:bufferNum} = expand('#' . a:bufferNum . ':p:t')
-    let s:Buffer__path{a:bufferNum} = expand('#' . a:bufferNum . ':p')
-    let s:Buffer__dir{a:bufferNum}  = expand('#' . a:bufferNum . ':p:h')
+"------------------------------
+" Search group
+"------------------------------
+
+function! s:SearchGroup_install(pattern)
+    let searchGroup = s:Group_create(
+                \ '::Search::',
+                \ '/' . a:pattern . '/',
+                \ function('s:SearchGroup_onBufAdd'), 
+                \ function('s:SearchGroup_onBufDelete'), 
+                \ function('s:SearchGroup_onBufAdd'), 
+                \ function('s:SearchGroup_onBufAdd')
+                \ )
+    call s:TBE_addGroup(searchGroup)
+    call searchGroup.collectBuffers()
 endfunction
 
-function! s:Buffer_getName(bufferNum)
-    return s:Buffer__name{a:bufferNum}
+function! s:SearchGroup_onBufAdd(buffer) dict
+    if s:TBE_bufferIsUntouchable(a:buffer) || index(self.buffers, a:buffer) != -1
+        return
+    endif
+
+    let pattern = substitute(self.title, '\v\/(.+)\/', '\1', '')
+    if a:buffer.getPath() =~? pattern
+        call add(self.buffers, a:buffer)
+    endif
 endfunction
 
-function! s:Buffer_getPath(bufferNum)
-    return s:Buffer__path{a:bufferNum}
+function! s:SearchGroup_onBufDelete(buffer) dict
+    let idx = index(self.buffers, a:buffer)
+    if idx != -1
+        call remove(self.buffers, idx)
+    endif
 endfunction
 
-function! s:Buffer_getDir(bufferNum)
-    return s:Buffer__dir{a:bufferNum}
+"------------------------------
+" Directory group
+"------------------------------
+
+function! s:DirectoryGroup_install(buffer)
+    if s:TBE_findGroupByID(a:buffer.getDirectory()) == {}
+        " create another directory group
+        let dirgrp = s:Group_create(
+                    \ '::Directory::',
+                    \ 'Directory buffers',
+                    \ function('s:DirectoryGroup_onBufAdd'), 
+                    \ function('s:DirectoryGroup_onBufDelete'), 
+                    \ function('s:Group_defaultHandler'), 
+                    \ function('s:DirectoryGroup_onCollect')
+                    \ )
+        call s:DirectoryGroup__updateInfoWithBuffer(dirgrp, a:buffer.number)
+        call s:TBE_addGroup(dirgrp)
+        call dirgrp.onBufAdd(a:buffer)
+    endif
 endfunction
 
-function! s:Buffer_delete(bufferNum)
-    let s:Buffer__name{a:bufferNum} = ''
-    let s:Buffer__path{a:bufferNum} = ''
-    let s:Buffer__dir{a:bufferNum}  = ''
-    unlet! s:Buffer__name{a:bufferNum}
-    unlet! s:Buffer__path{a:bufferNum}
-    unlet! s:Buffer__dir{a:bufferNum}
-    execute a:bufferNum . 'bdelete!'
+function! s:DirectoryGroup__updateInfoWithBuffer(group, bufferNumber)
+    let a:group.id = s:Buffer_create(a:bufferNumber).getDirectory()
+    let a:group.title = expand('#' . a:bufferNumber . ':p:h:t')
+    if strlen(a:group.title) == 0
+        let a:group.title = a:group.id
+    endif
+endfunction
+
+function! s:DirectoryGroup_onBufAdd(buffer) dict
+    if s:TBE_bufferIsUntouchable(a:buffer) || index(self.buffers, a:buffer) != -1
+        return
+    endif
+
+    if self.id ==? a:buffer.getDirectory()
+        call add(self.buffers, a:buffer)
+    else
+        call s:DirectoryGroup_install(a:buffer)
+    endif
+endfunction
+
+function! s:DirectoryGroup_onBufDelete(buffer) dict
+    let idx = index(self.buffers, a:buffer)
+    if idx != -1
+        call remove(self.buffers, idx)
+        if len(self.buffers) == 0
+            call s:TBE_removeGroup(self)
+        endif
+    endif
+endfunction
+
+function! s:DirectoryGroup_onCollect(buffer) dict
+    call self.onBufAdd(a:buffer)
+endfunction
+
+"------------------------------
+" ALL group
+"------------------------------
+
+function! s:ALLGroup_install()
+    let allGroup = s:Group_create(
+                \ '::ALL::',
+                \ 'ALL buffers',
+                \ function('s:ALLGroup_onBufAdd'), 
+                \ function('s:ALLGroup_onBufDelete'), 
+                \ function('s:Group_defaultHandler'), 
+                \ function('s:ALLGroup_onCollect')
+                \ )
+    call s:TBE_addGroup(allGroup)
+    call allGroup.collectBuffers()
+endfunction
+
+function! s:ALLGroup_onBufAdd(buffer) dict
+    if s:TBE_bufferIsUntouchable(a:buffer) || index(self.buffers, a:buffer) != -1
+        return
+    endif
+
+    call add(self.buffers, a:buffer)
+
+    call s:DirectoryGroup_install(a:buffer)
+endfunction
+
+function! s:ALLGroup_onBufDelete(buffer) dict
+    let idx = index(self.buffers, a:buffer)
+    if idx != -1
+        call remove(self.buffers, idx)
+    endif
+endfunction
+
+function! s:ALLGroup_onCollect(buffer) dict
+    call self.onBufDelete(a:buffer)
+    call self.onBufAdd(a:buffer)
+endfunction
+
+"------------------------------
+" TBE common routines
+"------------------------------
+
+augroup TBE
+    autocmd!
+    autocmd  BufAdd    * call <SID>TBE_onBufAdd(expand('<abuf>') + 0)
+    autocmd  BufDelete * call <SID>TBE_onBufDelete(expand('<abuf>') + 0)
+    autocmd  BufEnter  * call <SID>TBE_onBufEnter(expand('<abuf>') + 0)
+augroup END
+
+
+function! s:TBE_init()
+    " a collection of all groups
+    let s:TBE_groups = []
+
+    call s:MRUGroup_install()
+    call s:ALLGroup_install()
+    call s:DirectoryGroup_install(s:Buffer_create(bufnr('%')))
+    "call s:SearchGroup_install('vim')
+endfunction
+
+function! s:TBE_addGroup(group)
+    if index(s:TBE_groups, a:group) == -1
+        call add(s:TBE_groups, a:group)
+    endif
+
+    call sort(s:TBE_groups, function('s:TBE_compareGroup'))
+endfunction
+
+function! s:TBE_compareGroup(v1, v2)
+    return a:v1.id ==? a:v2.id ? 0 : a:v1.id > a:v2.id ? 1 : -1
+endfunction
+
+function! s:TBE_removeGroup(group)
+    let idx = index(s:TBE_groups, a:group)
+    if idx != -1
+        call remove(s:TBE_groups, idx)
+    endif
+endfunction
+
+function! s:TBE_findGroupByID(groupID)
+    for g in s:TBE_groups
+        if g.id ==? a:groupID " ignore case
+            return g
+        endif
+    endfor
+    return {}
+endfunction
+
+function! s:TBE_findCurrentDirGroup()
+    let currdir = expand('%:p:h')
+    let currgrp = s:TBE_findGroupByID(currdir)
+    return currgrp
+endfunction
+
+function! s:TBE_findGroupIndexOf(group)
+    let gi = 0
+    for g in s:TBE_groups
+        if g == a:group
+            return gi
+        endif
+        let gi = gi + 1
+    endfor
+    return -1
+endfunction
+
+function! s:TBE_findNextGroup(group)
+    let gi = s:TBE_findGroupIndexOf(a:group)
+    if gi == -1
+        return {}
+    endif
+    let gi = (gi + 1) % len(s:TBE_groups)
+    return s:TBE_groups[gi]
+endfunction
+
+function! s:TBE_bufferIsUntouchable(buffer)
+    return
+                \ 0
+                \ || (bufname(a:buffer.number) == s:TBE_MAIN_BUFFER_NAME)
+                \ || (bufname(a:buffer.number) == s:TBE_GROUP_BUFFER_NAME)
+                \ || !buflisted(a:buffer.number)
+                \ || (getbufvar(a:buffer.number, '&filetype') == 'help')
+endfunction
+
+function! s:TBE_bufferIsUntouchableForMRU(buffer)
+    return
+                \ 0
+                \ || (bufname(a:buffer.number) == s:TBE_MAIN_BUFFER_NAME)
+                \ || (bufname(a:buffer.number) == s:TBE_GROUP_BUFFER_NAME)
+                \ || (getbufvar(a:buffer.number, '&filetype') == 'help')
+endfunction
+
+function! s:TBE_onBufAdd(bufferNumber)
+    for g in s:TBE_groups
+        call g.onBufAdd(s:Buffer_create(a:bufferNumber))
+    endfor
+endfunction
+
+function! s:TBE_onBufDelete(bufferNumber)
+    for g in s:TBE_groups
+        call g.onBufDelete(s:Buffer_create(a:bufferNumber))
+    endfor
+endfunction
+
+function! s:TBE_onBufEnter(bufferNumber)
+    for g in s:TBE_groups
+        call g.onBufEnter(s:Buffer_create(a:bufferNumber))
+    endfor
 endfunction
 
 
-"-----------------
-" Startup routine
-"-----------------
+"------------------------------
+" Group
+"------------------------------
+
+function! s:Group_create(id, title, onBufAdd, onBufDelete, onBufEnter, onCollect)
+    return {
+        \   'id'            : a:id
+        \ , 'title'         : a:title
+        \ , 'buffers'       : []
+        \ , 'collectBuffers': function('s:Group__collectBuffers')
+        \ , 'onBufAdd'      : a:onBufAdd
+        \ , 'onBufDelete'   : a:onBufDelete
+        \ , 'onBufEnter'    : a:onBufEnter
+        \ , 'onCollect'     : a:onCollect
+        \ , 'getID'         : function('s:Group__getID')
+        \ , 'getTitle'      : function('s:Group__getTitle')
+        \ , 'getBufferCount': function('s:Group__getBufferCount')
+        \ }
+endfunction
+
+function! s:Group_defaultHandler(buffer) dict
+    " does nothing
+endfunction
+
+function! s:Group__collectBuffers() dict
+    for b in range(1, bufnr('$'))
+        call self.onCollect(s:Buffer_create(b))
+    endfor
+endfunction
+
+
+if 0 " sample
+    function! s:MyBufAdd(buffer) dict
+        echom 'MyBufAdd(' . a:buffer.number . ')'    
+    endfunction
+    function! s:MyBufDelete(buffer) dict
+        echom 'MyBufDelete(' . a:buffer.number . ')' 
+    endfunction
+    function! s:MyBufEnter(buffer) dict
+        echom 'MyBufEnter(' . a:buffer.number . ')'  
+    endfunction
+    function! s:MyCollect(buffer) dict
+        echom 'MyCollect(' . a:buffer.number . ')'   
+        if !s:TBE_bufferIsUntouchable(a:buffer)
+            call add(self.buffers, a:buffer)
+        endif
+    endfunction
+    unlet s:groupTest
+    let s:groupTest = s:Group_create(
+                \ 'groupTestID',
+                \ 'groupTestTitle', 
+                \ function('s:MyBufAdd'), 
+                \ function('s:MyBufDelete'), 
+                \ function('s:MyBufEnter'), 
+                \ function('s:MyCollect'))
+    call s:groupTest.collectBuffers()
+    "for b in s:groupTest.buffers
+    "    echom b.getName()
+    "endfor
+    call s:TBE_addGroup(s:groupTest)
+endif
+
+function! s:Group__getID() dict
+    return self.id
+endfunction
+
+function! s:Group__getTitle() dict
+    return self.title
+endfunction
+
+function! s:Group__getBufferCount() dict
+    return len(self.buffers)
+endfunction
+
+
+"------------------------------
+" Buffer
+"------------------------------
+
+function! s:Buffer_create(number)
+    return {
+                \   'number'        : a:number
+                \ , 'getNumber'     : function('s:Buffer__getNumber')
+                \ , 'getName'       : function('s:Buffer__getName')
+                \ , 'getDirectory'  : function('s:Buffer__getDirectory')
+                \ , 'getPath'       : function('s:Buffer__getPath')
+                \ , 'isModified'    : function('s:Buffer__isModified')
+                \ , 'isHidden'      : function('s:Buffer__isHidden')
+                \ , 'isCurrent'     : function('s:Buffer__isCurrent')
+                \ , 'isAlternate'   : function('s:Buffer__isAlternate')
+                \ , 'open'          : function('s:Buffer_open')
+                \ }
+endfunction
+
+function! s:Buffer_createWithName(name)
+    return s:Buffer_create(bufnr(a:name, 1))
+endfunction
+
+function! s:Buffer_open(method, jump, options) dict
+    " buffer already exists?
+    let winnum = bufwinnr(self.number)
+    if winnum != -1 " exists
+        if a:jump
+            execute 'keepalt ' . winnum . 'wincmd w'
+        endif
+        silent execute 'setlocal ' . a:options
+    else
+        let currbuff = s:Buffer_createWithName(bufname('%'))
+        let currbufname = bufname('%')
+
+        let l:method = a:method
+        if l:method == ''
+            let l:method = 'new'
+        endif
+        execute 'keepalt ' . l:method . ' #' . self.number
+        silent execute 'setlocal ' . a:options
+
+        if !a:jump
+            call currbuff.open('', 1, '')
+        endif
+    endif
+endfunction
+
+function! s:Buffer_openWindow(bufferName, method, jump, options)
+    " buffer already exists?
+    let winnum = bufwinnr(a:bufferName)
+    if winnum != -1 " exists
+        if a:jump
+            execute 'keepalt ' . winnum . 'wincmd w'
+        endif
+        silent execute 'setlocal ' . a:options
+        return s:Buffer_create(bufnr(a:bufferName))
+    else
+        let currbufname = bufname('%')
+
+        let l:method = a:method
+        if l:method == ''
+            let l:method = 'new'
+        endif
+        execute 'keepalt ' . l:method . ' ' . a:bufferName
+        silent execute 'setlocal ' . a:options
+
+        if !a:jump
+            call s:Buffer_openWindow(currbufname, '', 1, '')
+        endif
+    endif
+endfunction
+
+" a shortcut
+function! s:Buffer_openTempWindow(bufferName, method, jump)
+    let b = s:Buffer_openWindow(
+                \ a:bufferName,
+                \ a:method,
+                \ a:jump,
+                \ 'nonumber buftype=nofile bufhidden=delete noswapfile')
+endfunction
+
+function! s:Buffer__getNumber() dict
+    return self.number
+endfunction
+
+function! s:Buffer__getName() dict
+    return expand('#' . self.number . ':p:t')
+endfunction
+
+function! s:Buffer__getDirectory() dict
+    return expand('#' . self.number . ':p:h')
+endfunction
+
+function! s:Buffer__getPath() dict
+    return expand('#' . self.number . ':p')
+endfunction
+
+function! s:Buffer__isModified() dict
+    return getbufvar(self.number, '&modified')
+endfunction
+
+function! s:Buffer__isHidden() dict
+    let result = 1
+    for i in range(tabpagenr('$'))
+        if index(tabpagebuflist(i + 1), self.number) != -1
+            let result = 0
+            break
+        endif
+    endfor
+    return result
+endfunction
+
+function! s:Buffer__isCurrent() dict
+    return (self.number == s:Buffer_currentBufferNumber)
+endfunction
+
+function! s:Buffer__isAlternate() dict
+    return (self.number == s:Buffer_alternateBufferNumber)
+endfunction
+
+
+if 0
+    let s:Buffer_currentBufferNumber = bufnr('%')
+    let s:Buffer_alternateBufferNumber = bufnr('#')
+    let s:b = s:Buffer_create(2)
+    echo s:b.getName()
+    echo s:b.isModified()
+    echo s:b.isCurrent()
+    echo s:b.isHidden()
+    let s:b = s:Buffer_create(5)
+    echo s:b.getName()
+    echo s:b.isModified()
+    echo s:b.isCurrent()
+    echo s:b.isHidden()
+    let s:b = s:Buffer_create(6)
+    echo s:b.getName()
+    echo s:b.isModified()
+    echo s:b.isCurrent()
+    echo s:b.isHidden()
+endif
+
 
 call s:TBE_init()
 
-" vim: set fenc=utf-8 ff=unix ts=4 sts=4 sw=4 et : 
+" vim: set et ft=vim sts=4 sw=4 ts=4 : 
