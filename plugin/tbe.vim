@@ -339,6 +339,15 @@ let s:TBE_FORMAT_CURRENT  = '{%}'      " buffer left
 let s:TBE_FORMAT_HIDDEN   = '{h}'      " buffer left
 let s:TBE_FORMAT_MODIFIED = '{+}'      " buffer left
 
+
+" let s:HOGE_RELSTART = reltime()
+" function! s:HOGE(msg)
+"     echom strftime('%c') . ' ' . reltimestr(reltime(s:HOGE_RELSTART)) .  ' ' . a:msg
+" 	let s:HOGE_RELSTART = reltime()
+" endfunction
+" " call s:HOGE('')
+
+
 function! g:TBE_useFullfeaturedUI()
     call s:UI_memoCurrentBuffer()
 
@@ -424,26 +433,35 @@ function! s:FullfeaturedUI_render(group)
 endfunction
 
 function! s:FullfeaturedUI_generateBufferLines(group)
+    " line format test
+    let existsNumberFormat = (match(g:TBE_bufferLineFormat, '\V' . s:TBE_FORMAT_NUMBER) != -1)
+    let existsNameFormat = (match(g:TBE_bufferLineFormat, '\V' . s:TBE_FORMAT_NAME) != -1)
+    let existsPathFormat = (match(g:TBE_bufferLineFormat, '\V' . s:TBE_FORMAT_PATH) != -1)
+    let existsDirFormat = (match(g:TBE_bufferLineFormat, '\V' . s:TBE_FORMAT_DIR) != -1)
+    let existsCurrentFormat = (match(g:TBE_bufferLineFormat, '\V' . s:TBE_FORMAT_CURRENT) != -1)
+    let existsHiddenFormat = (match(g:TBE_bufferLineFormat, '\V' . s:TBE_FORMAT_HIDDEN) != -1)
+    let existsModifiedFormat = (match(g:TBE_bufferLineFormat, '\V' . s:TBE_FORMAT_MODIFIED) != -1)
+
     " max width
     let b = s:Buffer_create(0)
     " number
     let numberWid = 0
-    if stridx(g:TBE_bufferLineFormat, s:TBE_FORMAT_NUMBER) != -1
+    if existsNumberFormat
         let numberWid = s:FullfeaturedUI_getMaxWidth(a:group, b.getNumber)
     endif
     " name
     let nameWid = 0
-    if stridx(g:TBE_bufferLineFormat, s:TBE_FORMAT_NAME) != -1
+    if existsNameFormat
         let nameWid = s:FullfeaturedUI_getMaxWidth(a:group, b.getName)
     endif
     " path
     let pathWid = 0
-    if stridx(g:TBE_bufferLineFormat, s:TBE_FORMAT_PATH) != -1
+    if existsPathFormat
         let pathWid = s:FullfeaturedUI_getMaxWidth(a:group, b.getPath)
     endif
     " dir
     let dirWid = 0
-    if stridx(g:TBE_bufferLineFormat, s:TBE_FORMAT_DIR) != -1
+    if existsDirFormat
         let dirWid = s:FullfeaturedUI_getMaxWidth(a:group, b.getDirectory)
     endif
 
@@ -453,40 +471,54 @@ function! s:FullfeaturedUI_generateBufferLines(group)
         let s = g:TBE_bufferLineFormat
 
         " number
-        let number = repeat(' ', numberWid - strlen(string(b.number))) . string(b.number)
-        let s = substitute(s, '\V' . s:TBE_FORMAT_NUMBER, number, 'g')
+        if existsNumberFormat
+            let number = repeat(' ', numberWid - strlen(string(b.number))) . string(b.number)
+            let s = substitute(s, '\V' . s:TBE_FORMAT_NUMBER, number, 'g')
+        endif
         " name
-        let name = b.getName() . repeat(' ', nameWid - strlen(b.getName()))
-        let s = substitute(s, '\V' . s:TBE_FORMAT_NAME, escape(name, '\'), 'g')
+        if existsNameFormat
+            let name = b.getName() . repeat(' ', nameWid - strlen(b.getName()))
+            let s = substitute(s, '\V' . s:TBE_FORMAT_NAME, escape(name, '\'), 'g')
+        endif
         " path
-        let path = b.getPath() . repeat(' ', pathWid - strlen(b.getPath()))
-        let s = substitute(s, '\V' . s:TBE_FORMAT_PATH, escape(path, '\'), 'g')
+        if existsPathFormat
+            let path = b.getPath() . repeat(' ', pathWid - strlen(b.getPath()))
+            let s = substitute(s, '\V' . s:TBE_FORMAT_PATH, escape(path, '\'), 'g')
+        endif
         " dir
-        let dir = b.getDirectory() . repeat(' ', dirWid - strlen(b.getDirectory()))
-        let s = substitute(s, '\V' . s:TBE_FORMAT_DIR, escape(dir, '\'), 'g')
+        if existsDirFormat
+            let dir = b.getDirectory() . repeat(' ', dirWid - strlen(b.getDirectory()))
+            let s = substitute(s, '\V' . s:TBE_FORMAT_DIR, escape(dir, '\'), 'g')
+        endif
         " current
-        if b.isCurrent()
-            let current = '%'
-        elseif b.isAlternate()
-            let current = '#'
-        else
-            let current = ' '
+        if existsCurrentFormat
+            if b.isCurrent()
+                let current = '%'
+            elseif b.isAlternate()
+                let current = '#'
+            else
+                let current = ' '
+            endif
+            let s = substitute(s, '\V' . s:TBE_FORMAT_CURRENT, current, 'g')
         endif
-        let s = substitute(s, '\V' . s:TBE_FORMAT_CURRENT, current, 'g')
         " hidden
-        if b.isHidden()
-            let hidden = 'h'
-        else
-            let hidden = 'a'
+        if existsHiddenFormat
+            if b.isHidden()
+                let hidden = 'h'
+            else
+                let hidden = 'a'
+            endif
+            let s = substitute(s, '\V' . s:TBE_FORMAT_HIDDEN, hidden, 'g')
         endif
-        let s = substitute(s, '\V' . s:TBE_FORMAT_HIDDEN, hidden, 'g')
         " modified
-        if b.isModified()
-            let modified = '+'
-        else
-            let modified = ' '
+        if existsModifiedFormat
+            if b.isModified()
+                let modified = '+'
+            else
+                let modified = ' '
+            endif
+            let s = substitute(s, '\V' . s:TBE_FORMAT_MODIFIED, modified, 'g')
         endif
-        let s = substitute(s, '\V' . s:TBE_FORMAT_MODIFIED, modified, 'g')
 
         call add(result, s)
     endfor
@@ -1153,7 +1185,8 @@ endfunction
 "------------------------------
 
 function! s:DirectoryGroup_install(buffer)
-    if s:TBE_findGroupByID(a:buffer.getDirectory()) == {}
+    let dirgrp = s:TBE_findGroupByID(a:buffer.getDirectory())
+    if dirgrp == {}
         " create another directory group
         let dirgrp = s:Group_create(
                     \ '::Directory::',
@@ -1165,8 +1198,8 @@ function! s:DirectoryGroup_install(buffer)
                     \ )
         call s:DirectoryGroup__updateInfoWithBuffer(dirgrp, a:buffer.number)
         call s:TBE_addGroup(dirgrp)
-        call dirgrp.onBufAdd(a:buffer)
     endif
+    call dirgrp.onBufAdd(a:buffer)
 endfunction
 
 function! s:DirectoryGroup__updateInfoWithBuffer(group, bufferNumber)
@@ -1516,7 +1549,7 @@ function! s:Buffer__getNumber() dict
 endfunction
 
 function! s:Buffer__getName() dict
-    return expand('#' . self.number . ':p:t')
+    return expand('#' . self.number . ':t')
 endfunction
 
 function! s:Buffer__getDirectory() dict
