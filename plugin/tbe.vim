@@ -169,6 +169,10 @@
 "           <Fullfeatured>
 "           selects buffers(lines). Selected buffers are targets for deletion.
 "
+"       <F2>:
+"           <Fullfeatured, SimpleGroup>
+"           renames a group under the cursor or renames the current group.
+"
 "==============================
 " Commands
 "==============================
@@ -383,11 +387,33 @@ function! s:FullfeaturedUI_showGroupWindow()
     call s:FullfeaturedUI_setGroupHighlight()
 endfunction
 
+function! s:FullfeaturedUI_renameGroupInBufferWindow()
+    let name = input('GROUP Rename to: ', s:TBE_lastGroup.getTitle())
+    if strlen(name) == 0
+        return
+    endif
+    let s:TBE_lastGroup.title = name
+    call g:TBE_useFullfeaturedUI()
+endfunction
+
 function! s:FullfeaturedUI_jumpToGroup()
     let gi = line('.')
     if gi < 3 | return | endif
     call s:UI_backtoMainWindow()
     call s:FullfeaturedUI_render(s:TBE_groups[gi - 3])
+endfunction
+
+function! s:FullfeaturedUI_renameGroupInGroupWindow()
+    let gi = line('.')
+    if gi < 3 | return | endif
+    let g = s:TBE_groups[gi - 3]
+
+    let name = input('GROUP Rename to: ', g.getTitle())
+    if strlen(name) == 0
+        return
+    endif
+    let g.title = name
+    call s:FullfeaturedUI_renderGroups()
 endfunction
 
 function! s:FullfeaturedUI_render(group)
@@ -563,6 +589,9 @@ function! s:FullfeaturedUI_setKeymapping()
 
     noremap  <silent><buffer>  r        :call <SID>TBE_init()<CR>:call g:TBE_useFullfeaturedUI()<CR>
 
+    " naming group
+    noremap  <silent><buffer>  <F2>     :call <SID>FullfeaturedUI_renameGroupInBufferWindow()<CR>
+
     " do nothing
     noremap  <silent><buffer>  v        V
     noremap  <silent><buffer>  <C-v>    V
@@ -580,6 +609,9 @@ function! s:FullfeaturedUI_setGroupKeymapping()
     noremap  <silent><buffer>  G        :call <SID>FullfeaturedUI_jumpToGroup()<CR>
     noremap  <silent><buffer>  f        :call <SID>FullfeaturedUI_jumpToGroup()<CR>
     noremap  <silent><buffer>  F        :call <SID>FullfeaturedUI_jumpToGroup()<CR>
+
+    " naming group
+    noremap  <silent><buffer>  <F2>     :call <SID>FullfeaturedUI_renameGroupInGroupWindow()<CR>
 endfunction
 
 function! s:FullfeaturedUI_setGroupHighlight()
@@ -890,6 +922,9 @@ function! s:SimpleGroupUI_setKeymapping()
 
     noremap  <silent><buffer>  r        :call <SID>TBE_init()<CR>:call g:TBE_useSimpleGroupUI()<CR>
 
+    " naming group
+    noremap  <silent><buffer>  <F2>     :call <SID>SimpleGroupUI_renameGroupInBufferWindow()<CR>
+
     " do nothing
     noremap  <silent><buffer>  v        <NOP>
     noremap  <silent><buffer>  V        <NOP>
@@ -903,6 +938,15 @@ function! s:SimpleGroupUI_setHighlight()
     syntax match TabLine   /\V\%1l\^\.\+  -/me=e-3 containedin=ALL contained
     " group tab key
     syntax match UnderLined   /\V\%1lTab=>/ containedin=ALL contained
+endfunction
+
+function! s:SimpleGroupUI_renameGroupInBufferWindow()
+    let name = input('GROUP Rename to: ', s:TBE_lastGroup.getTitle())
+    if strlen(name) == 0
+        return
+    endif
+    let s:TBE_lastGroup.title = name
+    call g:TBE_useSimpleGroupUI()
 endfunction
 
 function! s:SimpleGroupUI_selectGroup()
